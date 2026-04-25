@@ -148,11 +148,35 @@ After `npm i`, run `npx cap sync ios` and Xcode will pick up the native side. Ea
 - **Custom fonts**: Google Fonts load from CDN. For offline / App Store compliance, subset and self-host with `@fontsource/*` packages.
 - **Animations**: framer-motion is installed but not yet used. The prototype's CSS keyframes (`fade-up`, `breathe`, `wave-bar`, `xp-fill`) carry most of the motion via styles.css — fine for now.
 
+## Architectural pillars (DO NOT VIOLATE — saved to my long-term memory)
+
+1. **MCP-first.** Every endpoint (backend Supabase ops AND frontend UI commands) is exposed as an MCP tool via [`packages/mcp-nik/`](packages/mcp-nik/). The registry lives at [`web/src/contracts/`](web/src/contracts/). One source of truth, three consumers (humans, code, LLM).
+2. **In-app Nik AI is per-user, aware of everything, can mutate UI** — switch theme, add/move/resize widgets, navigate, complete tasks. Wired through `CommandBus` in [`web/src/lib/useCommand.tsx`](web/src/lib/useCommand.tsx).
+3. **Pluggable LLM** — Claude / GPT / Gemini all callable via the MCP layer.
+4. **Clean registers** — per-screen `manifest.ts` enforced by ESLint (planned). Registry is the input to MCP tool generation, prefetch planning, and the wiring-check CI job.
+5. **No wiring breaks** — Supabase generated types + dependency-cruiser + per-screen manifest. CI fails before drift ships.
+6. **Integrations as MCP servers** — Gmail, Messages, WhatsApp, Calendar all exposed as their own MCP servers (`nik-mcp-gmail`, etc.). Nik ingests signals passively (e.g. a movie ticket email surfaces on Brief screen + Vault). Composable, per-user disable-able.
+7. **AI is in every inch of the app**, not just the chat screen. Every screen has tap-to-AI affordances; voice orb is reachable everywhere; long-press on widgets surfaces AI suggestions.
+8. **Login + onboarding deferable.** Current dev flow auto-signs-in as the seeded user. Real Google OAuth lands later; does not block feature work today.
+
 ## Conventions for Claude
 
 - The user is non-technical — explain decisions in plain language. Favor recommending one path over offering many options.
 - Don't suggest rewriting the prototype JSX — it IS the design. Just port carefully when adding features.
 - The earlier React Native port at [rn-port-archive/](rn-port-archive/) was abandoned because it lost too much visual fidelity. The Babel-in-browser Capacitor wrap at [www/](www/) is also abandoned (replaced by web/). Don't suggest going back unless explicitly required.
 - Before claiming a UI change is done, screenshot the simulator and verify visually — WebView caching has bitten us already.
-- The Obsidian-style wiki at [docs/](docs/) is the source of truth for design intent, screen behavior, and architecture decisions. Update it when introducing new conventions or making non-obvious tradeoffs.
+- The Obsidian-style wiki at [docs/](docs/) is the source of truth for design intent, screen behavior, and architecture decisions. **Always update it when introducing new conventions or making non-obvious tradeoffs.** Specifically: [docs/Architectural Pillars.md](docs/Architectural%20Pillars.md), [docs/Registry.md](docs/Registry.md), [docs/Integrations.md](docs/Integrations.md), [docs/Backlog.md](docs/Backlog.md).
 - Use [`web/CONVERSION.md`](web/CONVERSION.md) as the reference if you need to port additional prototype files.
+
+## Where the source of truth lives for each topic
+
+| Topic | File |
+|---|---|
+| Architectural rules (don't drift) | [docs/Architectural Pillars.md](docs/Architectural%20Pillars.md) |
+| Operations + Commands registry | [docs/Registry.md](docs/Registry.md), code at [web/src/contracts/](web/src/contracts/) |
+| Gmail / WhatsApp / Calendar plan | [docs/Integrations.md](docs/Integrations.md) |
+| What's not done yet | [docs/Backlog.md](docs/Backlog.md) |
+| Why we picked X over Y | [docs/Decisions/](docs/Decisions/) |
+| Per-screen behavior | [docs/Screens/](docs/Screens/) |
+| MCP server implementation | [packages/mcp-nik/](packages/mcp-nik/) |
+| Supabase schema | [supabase/migrations/](supabase/migrations/) |

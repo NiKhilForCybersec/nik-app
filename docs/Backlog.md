@@ -2,7 +2,40 @@
 
 What's NOT done. Roughly ordered by likely-next.
 
+## Just shipped (for context)
+
+- ✅ Operations + Commands registry ([[Registry]])
+- ✅ Supabase local stack + Habits end-to-end
+- ✅ MCP server skeleton at `packages/mcp-nik/`
+- ✅ CommandBus for AI-dispatched UI mutations
+- ✅ GitHub repo + CI (type-check + build + wiring-check)
+- ✅ Per-screen redesigns: Circle, Family Ops, Couple, Kids, Home, Habits, MoreScreen, ComingSoonScreen
+
 ## Near-term (next sprint or two)
+
+### Migrate remaining 20 screens to the registry
+Habits is wired end-to-end. Apply the same pattern to: Score, Diary, Family Circle, Family Ops, Meds, Sleep, Money, Brief, Vault, Errands, Couple, Kids, Focus, Fitness, Profile, Settings, Quests, Stats, Widgets, Chat. One PR each, mechanical.
+
+### Per-screen `manifest.ts` + ESLint enforcement
+Each screen declares its `reads`, `writes`, `mutations`, `permissions`. Custom ESLint rule fails the build if a screen calls an op not in its manifest. The registry becomes provably consistent.
+
+### dependency-cruiser config
+Forbid cross-feature imports. `features/habits/**` may not import `features/score/**`. Codified in `.dependency-cruiser.cjs`, enforced in CI.
+
+### MCP server in production
+Right now MCP runs locally as stdio for testing. Move to:
+- HTTP transport (Anthropic Messages API `mcp_servers` param)
+- Per-user OAuth bearer (so tools run with the user's identity, RLS works)
+- Streamable responses
+
+### AI-driven UI commands actually work
+Wire the realtime channel: MCP server → Postgres `pending_commands` table → Supabase realtime → device → CommandBus → executed. Then the AI can say "open habits" and the device navigates.
+
+### Auth UI (login + onboarding)
+Currently auto-signs-in as a seeded dev user. Real flow:
+- Google OAuth via Supabase Auth (enable in `supabase/config.toml`)
+- Magic link fallback
+- Wire `OnboardScreen` to actual permission requests + identity creation
 
 ### Add Android target
 ```bash
@@ -39,6 +72,28 @@ Nothing survives an app restart. Add `@capacitor/preferences` for simple key-val
 | Local notifications | `@capacitor/local-notifications` | Meds, Focus alarms |
 
 ## Mid-term
+
+### Integrations as MCP servers (the killer use case)
+
+See [[Integrations]] for the full plan. Phasing:
+
+| Phase | Server | Why this order |
+|---|---|---|
+| Phase 2 | `nik-mcp-healthkit` | On-device, no OAuth complexity, immediate value for Habits/Sleep/Fitness |
+| Phase 2 | `nik-mcp-calendar` | Cheapest external win — Brief screen lights up |
+| Phase 3 | `nik-mcp-gmail` | The unlock — movie tickets, bills, birthdays auto-surface |
+| Phase 4 | `nik-mcp-whatsapp` + `nik-mcp-messages` | Family Circle becomes alive |
+| Phase 5 | `nik-mcp-spotify`, `nik-mcp-photos` | Polish |
+
+Each server is its own deployable. Per-user OAuth tokens encrypted. Per-server permission toggles in app settings.
+
+### AI-everywhere UX (in-app Nik AI)
+
+Currently the AI lives in the Chat screen. Expand to:
+- Long-press any widget → "ask Nik about this"
+- Per-screen "AI assist" button (top-right of every screen header)
+- Context-aware suggestions surface as the user moves between screens
+- Voice orb reachable from any screen (already exists in shell, expand triggers)
 
 ### Backend
 No server yet. Need:

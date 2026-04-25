@@ -6,8 +6,11 @@ Welcome to the Nik vault. Open this folder in [Obsidian](https://obsidian.md) an
 
 - [[Architecture]] — what the app is, what's built, what wraps it
 - [[Build & Run]] — practical commands to develop and ship
+- [[Architectural Pillars]] — **READ THIS** — load-bearing rules that shape every decision
+- [[Registry]] — operations + commands + MCP, the keystone of "no wiring breaks"
+- [[Integrations]] — Gmail / WhatsApp / Calendar as MCP servers
 - [[Themes]] — the theme universe system
-- [[Data Model]] — current mock data shapes (= implied backend schema)
+- [[Data Model]] — current shapes (= implied backend schema)
 - [[Backlog]] — what's not yet built
 - [[Decisions]] — log of architectural choices and *why*
 
