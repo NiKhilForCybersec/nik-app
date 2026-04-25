@@ -90,6 +90,39 @@ The LLM (Claude, GPT, Gemini — pluggable) sees the same tool catalog the app d
 - **dependency-cruiser** (planned) — forbids cross-feature imports so a Habits screen can't accidentally couple to Score internals.
 - **Per-screen manifest** (planned) — each screen declares its `reads` / `writes` / `permissions`; an ESLint rule asserts the screen JSX only calls those.
 
+## Per-screen manifests (the wiring-break safety net)
+
+Every screen has a sibling `<Name>Screen.manifest.ts` next to its `.tsx`:
+
+```ts
+// web/src/screens/HabitsScreen.manifest.ts
+import { defineScreen } from '../lib/screen-manifest';
+import { habits } from '../contracts/habits';
+import { ui }     from '../contracts/ui-commands';
+
+export const manifest = defineScreen({
+  id: 'habits',
+  reads:    [habits.list],
+  writes:   [habits.bump, habits.create, habits.remove],
+  commands: [ui.navigateTo],
+  permissions: ['habits.read', 'habits.write'],
+  aiAffordances: [
+    'Add a habit',
+    'Mark a habit as done',
+    'Show me my streaks',
+    'What\'s the habit I\'m closest to completing?',
+  ],
+});
+```
+
+The CI job `wiring-check` runs [`scripts/check-wiring.mjs`](../scripts/check-wiring.mjs) which AST-lite-parses every screen and verifies:
+- Every `useOp(X)` / `useOpMutation(X)` / `useDispatch(X)` call has a matching entry in the manifest's `reads` / `writes` / `commands`.
+- Every entry in the manifest is actually used (warning, not error).
+
+**Drift = build fail.** Renaming an op or removing one without updating the manifest breaks the build before it ships.
+
+The aggregate `web/src/screens/manifests.ts` exposes `SCREEN_MANIFESTS[ScreenId]` — used by the MCP server to answer "what tools is the user looking at right now?" and by the future "AI affordances" tap-menu on each screen.
+
 ## Status
 
 | Layer | Status |
@@ -98,9 +131,10 @@ The LLM (Claude, GPT, Gemini — pluggable) sees the same tool catalog the app d
 | `defineCommand` + `CommandBus` | ✅ shipped |
 | Habits ops (6 of them) | ✅ shipped, end-to-end with Supabase |
 | MCP server skeleton | ✅ shipped, exposes all current ops + commands |
-| Per-screen `manifest.ts` + lint rule | ⏳ planned |
+| Per-screen `manifest.ts` + wiring-check CI | ✅ shipped (Habits has full manifest, 24 stubbed) |
 | dependency-cruiser config | ⏳ planned |
-| Score / Diary / Family ops | ⏳ next batch |
+| `LLMProvider` interface + router | ⏳ next |
+| Score / Diary / Family ops | ⏳ next batch (mechanical) |
 
 ## Related
 
