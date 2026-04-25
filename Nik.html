@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Nik — AI Life Assistant</title>
+<link rel="stylesheet" href="styles.css?v=2"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div class="aurora-bg"></div>
+<div class="grid-pattern"></div>
+<div id="root"></div>
+
+<script src="components/data.js"></script>
+<script src="components/circle-data.js"></script>
+<script src="components/themes.js"></script>
+<script src="components/score.js"></script>
+<script type="text/babel" src="frames/ios-frame.jsx"></script>
+<script type="text/babel" src="frames/android-frame.jsx"></script>
+<script type="text/babel" src="components/icons.jsx"></script>
+<script type="text/babel" src="components/primitives.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="screens/home.jsx"></script>
+<script type="text/babel" src="screens/chat.jsx"></script>
+<script type="text/babel" src="screens/more.jsx"></script>
+<script type="text/babel" src="screens/habits.jsx"></script>
+<script type="text/babel" src="screens/fitness.jsx"></script>
+<script type="text/babel" src="screens/profile.jsx"></script>
+<script type="text/babel" src="screens/family-ops.jsx"></script>
+<script type="text/babel" src="screens/circle-sheets.jsx"></script>
+<script type="text/babel" src="screens/circle.jsx"></script>
+<script type="text/babel" src="screens/meds-sheets.jsx"></script>
+<script type="text/babel" src="screens/meds.jsx"></script>
+<script type="text/babel" src="screens/diary-sheets.jsx"></script>
+<script type="text/babel" src="screens/diary.jsx"></script>
+<script type="text/babel" src="screens/focus.jsx"></script>
+<script type="text/babel" src="screens/score-detail.jsx"></script>
+<script type="text/babel" src="screens/sleep.jsx"></script>
+<script type="text/babel" src="screens/money.jsx"></script>
+<script type="text/babel" src="screens/brief.jsx"></script>
+<script type="text/babel" src="screens/vault.jsx"></script>
+<script type="text/babel" src="screens/errands.jsx"></script>
+<script type="text/babel" src="screens/couple.jsx"></script>
+<script type="text/babel" src="screens/kids.jsx"></script>
+<script type="text/babel" src="screens/onboard.jsx"></script>
+<script type="text/babel" src="screens/settings.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+// ── DEFAULTS (tweakable) ──────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "ghibli",
+  "intensity": "full",
+  "persona": "family",
+  "density": "comfortable",
+  "fontPair": "theme"
+}/*EDITMODE-END*/;
+
+// ── Phone container renderer ──────────────────────
+const PhoneApp = ({ frame, dark, state, setState }) => {
+  const { screen, listening, notifVisible } = state;
+  const onNav = (s) => setState(x => ({ ...x, screen: s, notifVisible: false }));
+  const onVoice = () => setState(x => ({ ...x, listening: true }));
+  const closeVoice = () => setState(x => ({ ...x, listening: false }));
+
+  const screenEl = (() => {
+    const common = { dark, onNav, onVoice, intensity: state.intensity, aesthetic: state.aesthetic };
+    switch (screen) {
+      case 'home': return <HomeScreen {...common}/>;
+      case 'chat': return <ChatScreen {...common} listening={listening}/>;
+      case 'habits': return <HabitsScreenV2 {...common}/>;
+      case 'quests': return <QuestsScreen {...common}/>;
+      case 'fitness': return <FitnessScreen {...common}/>;
+      case 'family': return <FamilyCircleScreen {...common} state={state} setState={setState}/>;
+      case 'familyops': return <FamilyOpsScreen {...common}/>;
+      case 'meds': return <MedsScreen {...common} themeId={state.theme}/>;
+      case 'diary': return <DiaryScreen {...common} themeId={state.theme}/>;
+      case 'focus': return <FocusScreen {...common} onExit={() => setState(x => ({ ...x, screen: 'home' }))}/>;
+      case 'score': return <ScoreDetailScreen {...common} themeId={state.theme}/>;
+      case 'sleep': return <SleepScreen {...common}/>;
+      case 'money': return <MoneyScreen {...common}/>;
+      case 'brief': return <BriefScreen {...common}/>;
+      case 'vault': return <VaultScreen {...common}/>;
+      case 'errands': return <ErrandsScreen {...common}/>;
+      case 'couple': return <CoupleScreen {...common}/>;
+      case 'kids': return <KidsScreen {...common}/>;
+      case 'onboard': return <OnboardScreen onDone={() => setState(x => ({ ...x, screen: 'home' }))}/>;
+      case 'settings': return <SettingsScreen {...common}/>;
+      case 'skeleton': return <SkeletonScreen/>;
+      case 'empty': return <EmptyState icon="sparkle" title="Nothing yet" body="Nik is still learning your patterns. Add your first habit and I'll start helping in a few days." cta="Add a habit" onCta={() => setState(x => ({ ...x, screen: 'habits' }))}/>;
+      case 'widgets': return <WidgetsScreen {...common}/>;
+      case 'stats': return <StatsScreen {...common}/>;
+      case 'profile': return <ProfileScreen {...common} state={state} setState={setState}/>;
+      default: return <HomeScreen {...common}/>;
+    }
+  })();
+
+  // inner content (not including frame chrome)
+  const inner = (
+    <div style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: dark ? 'linear-gradient(180deg, oklch(0.10 0.02 260), oklch(0.14 0.025 260))' : 'linear-gradient(180deg, oklch(0.98 0.005 260), oklch(0.94 0.01 260))' }}>
+      {/* subtle aurora inside phone */}
+      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(ellipse 90% 40% at 50% 0%, oklch(0.5 0.22 var(--hue) / 0.25), transparent 70%)' }}/>
+      {/* screen content w/ status bar padding */}
+      <div style={{ position: 'relative', zIndex: 1, height: '100%', paddingTop: frame === 'ios' ? 54 : 40, overflowY: 'auto', overflowX: 'hidden' }}>
+        {screenEl}
+      </div>
+      {/* notification toast */}
+      {notifVisible && <Toast notif={MOCK.notifications[0]} onDismiss={() => setState(x => ({ ...x, notifVisible: false }))}/>}
+      {/* offline banner */}
+      {state.offline && <OfflineBanner visible={true} kind={state.offline}/>}
+      {/* tab bar */}
+      {screen !== 'chat' && <TabBar active={screen} onNav={onNav} onVoice={() => setState(x => ({ ...x, screen: 'chat', listening: true }))}/>}
+      {/* voice overlay */}
+      {listening && screen !== 'chat' && <VoiceOverlay onClose={closeVoice}/>}
+    </div>
+  );
+
+  if (frame === 'ios') {
+    return (
+      <IOSDevice width={380} height={820} dark={dark}>
+        {inner}
+      </IOSDevice>
+    );
+  } else {
+    return (
+      <AndroidDevice width={390} height={830} dark={dark}>
+        <div style={{ flex: 1, overflow: 'hidden', height: '100%', marginTop: -40 }}>
+          {inner}
+        </div>
+      </AndroidDevice>
+    );
+  }
+};
+
+// ── Tweaks panel ──────────────────────────────────
+const TweaksPanel = ({ state, setState, visible, onClose }) => {
+  if (!visible) return null;
+  const set = (k, v) => {
+    setState(x => ({ ...x, [k]: v }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+  };
+  const intensities = ['light', 'medium', 'full'];
+  const personas = ['solo', 'family'];
+  const themeList = Object.values(window.THEMES || {});
+  return (
+    <div className="tweaks-panel">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+        <h3>Tweaks</h3>
+        <div onClick={onClose} style={{ cursor: 'pointer', opacity: 0.6 }}>✕</div>
+      </div>
+
+      <div className="tweak-row">
+        <label>Theme universe</label>
+        <div className="opts" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+          {themeList.map(t => (
+            <button key={t.id} className={state.theme === t.id ? 'active' : ''} onClick={() => set('theme', t.id)}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', textAlign: 'left' }}>
+              <span style={{ width: 22, height: 22, borderRadius: 6, background: `linear-gradient(135deg, ${t.palette.accent}, ${t.palette.accent2})`, flexShrink: 0 }}/>
+              <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                <span style={{ fontWeight: 600 }}>{t.name}</span>
+                <span style={{ fontSize: 9, opacity: 0.6 }}>{t.tag}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>Gamification intensity</label>
+        <div className="opts">
+          {intensities.map(m => (
+            <button key={m} className={state.intensity === m ? 'active' : ''} onClick={() => set('intensity', m)}>{m}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>Density</label>
+        <div className="opts">
+          {['cozy','comfortable','spacious'].map(m => (
+            <button key={m} className={state.density === m ? 'active' : ''} onClick={() => set('density', m)}>{m}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>Font pairing</label>
+        <div className="opts">
+          {['theme','system','editorial','grotesk','mono-display'].map(m => (
+            <button key={m} className={state.fontPair === m ? 'active' : ''} onClick={() => set('fontPair', m)}>{m === 'theme' ? "theme's choice" : m}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>Mode</label>
+        <div className="opts">
+          {personas.map(m => (
+            <button key={m} className={state.persona === m ? 'active' : ''} onClick={() => set('persona', m)}>{m}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>Jump to screen</label>
+        <div className="opts">
+          {['onboard', 'home', 'brief', 'chat', 'quests', 'habits', 'fitness', 'meds', 'sleep', 'money', 'errands', 'vault', 'couple', 'kids', 'family', 'familyops', 'widgets', 'stats', 'profile', 'settings', 'empty', 'skeleton'].map(s => (
+            <button key={s} onClick={() => { setState(x => ({ ...x, screen: s })); }}>{s}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>State demos</label>
+        <div className="opts">
+          <button onClick={() => setState(x => ({ ...x, offline: x.offline === 'offline' ? null : 'offline' }))}>Offline</button>
+          <button onClick={() => setState(x => ({ ...x, offline: x.offline === 'syncing' ? null : 'syncing' }))}>Syncing</button>
+          <button onClick={() => setState(x => ({ ...x, screen: 'empty' }))}>Empty</button>
+          <button onClick={() => setState(x => ({ ...x, screen: 'skeleton' }))}>Skeleton</button>
+        </div>
+      </div>
+
+      <div className="tweak-row">
+        <label>Trigger</label>
+        <div className="opts">
+          <button onClick={() => setState(x => ({ ...x, notifVisible: true }))}>GPS notif</button>
+          <button onClick={() => setState(x => ({ ...x, listening: !x.listening }))}>Voice</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Root ──────────────────────────────────────────
+function App() {
+  const [state, setState] = React.useState({
+    ...TWEAK_DEFAULTS,
+    screen: 'home',
+    listening: false,
+    notifVisible: true,
+  });
+  const [tweaksOpen, setTweaksOpen] = React.useState(false);
+
+  // Apply theme universe
+  React.useEffect(() => {
+    if (window.applyTheme) window.applyTheme(state.theme);
+    const t = window.getTheme && window.getTheme(state.theme);
+    if (t?.mode === 'light') document.documentElement.classList.add('light');
+    else document.documentElement.classList.remove('light');
+  }, [state.theme]);
+
+  // Apply density
+  React.useEffect(() => {
+    const map = { cozy: 0.85, comfortable: 1, spacious: 1.18 };
+    document.documentElement.style.setProperty('--density-scale', map[state.density] || 1);
+  }, [state.density]);
+
+  // Apply font pairing — but only override if user explicitly picked one (not 'theme')
+  React.useEffect(() => {
+    if (state.fontPair === 'theme') {
+      // let theme decide; clear inline overrides so applyTheme's values stick
+      document.documentElement.style.removeProperty('--font-display-override');
+      document.documentElement.style.removeProperty('--font-body-override');
+      // re-apply theme so its fonts come back
+      if (window.applyTheme) window.applyTheme(state.theme);
+      return;
+    }
+    const map = {
+      system: { display: '"Inter", system-ui, -apple-system, sans-serif', body: '"Inter", system-ui, sans-serif' },
+      editorial: { display: '"Fraunces", "Cormorant Garamond", Georgia, serif', body: '"Inter", system-ui, sans-serif' },
+      grotesk: { display: '"Space Grotesk", "Inter", sans-serif', body: '"Inter", system-ui, sans-serif' },
+      'mono-display': { display: '"JetBrains Mono", "IBM Plex Mono", monospace', body: '"Inter", system-ui, sans-serif' },
+    };
+    const f = map[state.fontPair] || map.system;
+    document.documentElement.style.setProperty('--font-display', f.display);
+    document.documentElement.style.setProperty('--font-body', f.body);
+  }, [state.fontPair, state.theme]);
+
+  // Apply intensity (chrome amount)
+  React.useEffect(() => {
+    const r = document.documentElement;
+    r.classList.remove('intensity-soft', 'intensity-medium', 'intensity-full');
+    r.classList.add('intensity-' + (state.intensity || 'full'));
+  }, [state.intensity]);
+
+  // Edit mode protocol
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setTweaksOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  // Auto-dismiss first-load notif after 6s
+  React.useEffect(() => {
+    const t = setTimeout(() => setState(x => ({ ...x, notifVisible: false })), 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const theme = window.getTheme ? window.getTheme(state.theme) : null;
+  const dark = theme?.mode !== 'light';
+
+  return (
+    <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', padding: '40px 24px 80px' }}>
+      <GradientDefs/>
+
+      {/* Header */}
+      <div style={{ maxWidth: 1100, margin: '0 auto 36px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div style={{
+              width: 28, height: 28, borderRadius: 8,
+              background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 80)))',
+              boxShadow: '0 0 16px oklch(0.78 0.16 var(--hue) / 0.5)',
+              position: 'relative',
+            }}>
+              <div style={{ position: 'absolute', inset: 6, borderRadius: '50%', border: '1.5px solid #06060a' }}/>
+              <div style={{ position: 'absolute', top: 10, left: 10, width: 8, height: 8, borderRadius: '50%', background: '#06060a' }}/>
+            </div>
+            <div className="display" style={{ fontSize: 22, fontWeight: 500, color: '#fff', letterSpacing: -0.3 }}>Nik</div>
+            <div className="mono" style={{ fontSize: 10, color: 'oklch(1 0 0 / 0.4)', letterSpacing: 2, padding: '3px 8px', border: '1px solid oklch(1 0 0 / 0.1)', borderRadius: 99 }}>PROTOTYPE</div>
+          </div>
+          <div style={{ fontSize: 13, color: 'oklch(1 0 0 / 0.55)', maxWidth: 520, lineHeight: 1.5 }}>
+            An AI life assistant that learns you — habits, quests, family circle, voice-first, GPS-aware. iOS and Android, side by side.
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="mono" style={{ fontSize: 10, color: 'oklch(1 0 0 / 0.4)', letterSpacing: 1.5 }}>{(theme?.name || 'NIK').toUpperCase()} · {(theme?.mode || 'dark').toUpperCase()}</div>
+          <div onClick={() => setTweaksOpen(v => !v)} className="tap" style={{
+            padding: '8px 14px', borderRadius: 99, fontSize: 12,
+            background: 'oklch(1 0 0 / 0.05)', border: '1px solid oklch(1 0 0 / 0.1)',
+            color: '#fff', display: 'flex', alignItems: 'center', gap: 6,
+          }}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M12 1v4M12 19v4M4.2 4.2l2.8 2.8M17 17l2.8 2.8M1 12h4M19 12h4"/>
+            </svg>
+            Tweaks
+          </div>
+        </div>
+      </div>
+
+      {/* Phones side by side */}
+      <div style={{
+        display: 'flex', gap: 48, alignItems: 'flex-start', justifyContent: 'center',
+        flexWrap: 'wrap', maxWidth: 1100, margin: '0 auto',
+      }}>
+        {/* iOS */}
+        <div data-screen-label={`iOS — ${state.screen}`}>
+          <div style={{ marginBottom: 12 }}>
+            <div className="canvas-label">01 · IOS · IPHONE</div>
+            <div className="canvas-title" style={{ color: '#fff' }}>Nik on iPhone</div>
+          </div>
+          <PhoneApp frame="ios" dark={dark} state={state} setState={setState}/>
+        </div>
+
+        {/* Android */}
+        <div data-screen-label={`Android — ${state.screen}`}>
+          <div style={{ marginBottom: 12 }}>
+            <div className="canvas-label">02 · ANDROID · PIXEL</div>
+            <div className="canvas-title" style={{ color: '#fff' }}>Nik on Pixel</div>
+          </div>
+          <PhoneApp frame="android" dark={dark} state={state} setState={setState}/>
+        </div>
+      </div>
+
+      {/* Screen jump strip */}
+      <div style={{ maxWidth: 1100, margin: '48px auto 0', padding: '20px 24px', borderRadius: 20, background: 'oklch(1 0 0 / 0.03)', border: '1px solid oklch(1 0 0 / 0.06)' }}>
+        <div className="mono" style={{ fontSize: 10, letterSpacing: 2, color: 'oklch(1 0 0 / 0.4)', marginBottom: 12 }}>JUMP · 10 SCREENS</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[
+            ['home', 'Dashboard'],
+            ['chat', 'AI Chat'],
+            ['quests', 'Quests / Tasks'],
+            ['habits', 'Habits · Live'],
+            ['fitness', 'Fitness Coach'],
+            ['meds', 'Meds'],
+            ['diary', 'Diary · NEW'],
+            ['focus', 'Focus Mode'],
+            ['score', 'Nik Score'],
+            ['sleep', 'Sleep · NEW'],
+            ['money', 'Money · NEW'],
+            ['brief', 'Today\'s Brief · NEW'],
+            ['vault', 'Memory Vault · NEW'],
+            ['errands', 'Errands · NEW'],
+            ['couple', 'Us · NEW'],
+            ['kids', 'Kids View · NEW'],
+            ['onboard', 'Onboarding'],
+            ['settings', 'Settings'],
+            ['family', 'Family Circle'],
+            ['familyops', 'Family Ops'],
+            ['widgets', 'Widget Edit'],
+            ['stats', 'Growth · Stats'],
+            ['profile', 'Profile · Themes'],
+          ].map(([id, label]) => (
+            <div key={id} onClick={() => setState(x => ({ ...x, screen: id, notifVisible: false }))} className="tap" style={{
+              padding: '8px 14px', borderRadius: 99, fontSize: 12,
+              background: state.screen === id ? 'oklch(0.78 0.16 var(--hue) / 0.2)' : 'oklch(1 0 0 / 0.03)',
+              border: '1px solid ' + (state.screen === id ? 'oklch(0.78 0.16 var(--hue) / 0.5)' : 'oklch(1 0 0 / 0.08)'),
+              color: state.screen === id ? 'oklch(0.9 0.14 var(--hue))' : 'oklch(1 0 0 / 0.7)',
+            }}>
+              {label}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <TweaksPanel state={state} setState={setState} visible={tweaksOpen} onClose={() => setTweaksOpen(false)}/>
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App/>);
+</script>
+</body>
+</html>

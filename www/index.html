@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no, maximum-scale=1.0"/>
+<title>Nik</title>
+<link rel="stylesheet" href="styles.css?v=2"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<style>
+  html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; background: #06060a; -webkit-text-size-adjust: 100%; }
+  body { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+  #root { height: 100%; width: 100%; position: relative; overflow: hidden; }
+  .aurora-bg, .grid-pattern { display: none !important; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="components/data.js"></script>
+<script src="components/circle-data.js"></script>
+<script src="components/themes.js"></script>
+<script src="components/score.js"></script>
+<script type="text/babel" src="components/icons.jsx"></script>
+<script type="text/babel" src="components/primitives.jsx"></script>
+<script type="text/babel" src="components/shell.jsx"></script>
+<script type="text/babel" src="screens/home.jsx"></script>
+<script type="text/babel" src="screens/chat.jsx"></script>
+<script type="text/babel" src="screens/more.jsx"></script>
+<script type="text/babel" src="screens/habits.jsx"></script>
+<script type="text/babel" src="screens/fitness.jsx"></script>
+<script type="text/babel" src="screens/profile.jsx"></script>
+<script type="text/babel" src="screens/family-ops.jsx"></script>
+<script type="text/babel" src="screens/circle-sheets.jsx"></script>
+<script type="text/babel" src="screens/circle.jsx"></script>
+<script type="text/babel" src="screens/meds-sheets.jsx"></script>
+<script type="text/babel" src="screens/meds.jsx"></script>
+<script type="text/babel" src="screens/diary-sheets.jsx"></script>
+<script type="text/babel" src="screens/diary.jsx"></script>
+<script type="text/babel" src="screens/focus.jsx"></script>
+<script type="text/babel" src="screens/score-detail.jsx"></script>
+<script type="text/babel" src="screens/sleep.jsx"></script>
+<script type="text/babel" src="screens/money.jsx"></script>
+<script type="text/babel" src="screens/brief.jsx"></script>
+<script type="text/babel" src="screens/vault.jsx"></script>
+<script type="text/babel" src="screens/errands.jsx"></script>
+<script type="text/babel" src="screens/couple.jsx"></script>
+<script type="text/babel" src="screens/kids.jsx"></script>
+<script type="text/babel" src="screens/onboard.jsx"></script>
+<script type="text/babel" src="screens/settings.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+const TWEAK_DEFAULTS = {
+  theme: 'ghibli',
+  intensity: 'full',
+  persona: 'family',
+  density: 'comfortable',
+  fontPair: 'theme',
+};
+
+function MobileApp() {
+  const [state, setState] = React.useState({
+    ...TWEAK_DEFAULTS,
+    screen: 'home',
+    listening: false,
+    notifVisible: true,
+  });
+
+  React.useEffect(() => {
+    if (window.applyTheme) window.applyTheme(state.theme);
+    const t = window.getTheme && window.getTheme(state.theme);
+    if (t?.mode === 'light') document.documentElement.classList.add('light');
+    else document.documentElement.classList.remove('light');
+  }, [state.theme]);
+
+  React.useEffect(() => {
+    const map = { cozy: 0.85, comfortable: 1, spacious: 1.18 };
+    document.documentElement.style.setProperty('--density-scale', map[state.density] || 1);
+  }, [state.density]);
+
+  React.useEffect(() => {
+    const r = document.documentElement;
+    r.classList.remove('intensity-soft', 'intensity-medium', 'intensity-full');
+    r.classList.add('intensity-' + (state.intensity || 'full'));
+  }, [state.intensity]);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setState(x => ({ ...x, notifVisible: false })), 8000);
+    return () => clearTimeout(t);
+  }, []);
+
+  const onNav = (s) => setState(x => ({ ...x, screen: s, notifVisible: false }));
+  const onVoice = () => setState(x => ({ ...x, listening: true }));
+  const closeVoice = () => setState(x => ({ ...x, listening: false }));
+  const theme = window.getTheme ? window.getTheme(state.theme) : null;
+  const dark = theme?.mode !== 'light';
+
+  const screenEl = (() => {
+    const common = { dark, onNav, onVoice, intensity: state.intensity, aesthetic: state.aesthetic };
+    switch (state.screen) {
+      case 'home': return <HomeScreen {...common}/>;
+      case 'chat': return <ChatScreen {...common} listening={state.listening}/>;
+      case 'habits': return <HabitsScreenV2 {...common}/>;
+      case 'quests': return <QuestsScreen {...common}/>;
+      case 'fitness': return <FitnessScreen {...common}/>;
+      case 'family': return <FamilyCircleScreen {...common} state={state} setState={setState}/>;
+      case 'familyops': return <FamilyOpsScreen {...common}/>;
+      case 'meds': return <MedsScreen {...common} themeId={state.theme}/>;
+      case 'diary': return <DiaryScreen {...common} themeId={state.theme}/>;
+      case 'focus': return <FocusScreen {...common} onExit={() => setState(x => ({ ...x, screen: 'home' }))}/>;
+      case 'score': return <ScoreDetailScreen {...common} themeId={state.theme}/>;
+      case 'sleep': return <SleepScreen {...common}/>;
+      case 'money': return <MoneyScreen {...common}/>;
+      case 'brief': return <BriefScreen {...common}/>;
+      case 'vault': return <VaultScreen {...common}/>;
+      case 'errands': return <ErrandsScreen {...common}/>;
+      case 'couple': return <CoupleScreen {...common}/>;
+      case 'kids': return <KidsScreen {...common}/>;
+      case 'onboard': return <OnboardScreen onDone={() => setState(x => ({ ...x, screen: 'home' }))}/>;
+      case 'settings': return <SettingsScreen {...common}/>;
+      case 'more': return <MoreScreen {...common}/>;
+      case 'widgets': return <WidgetsScreen {...common}/>;
+      case 'stats': return <StatsScreen {...common}/>;
+      case 'profile': return <ProfileScreen {...common} state={state} setState={setState}/>;
+      default: return <HomeScreen {...common}/>;
+    }
+  })();
+
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      position: 'relative',
+      overflow: 'hidden',
+      background: dark
+        ? 'linear-gradient(180deg, oklch(0.10 0.02 260), oklch(0.14 0.025 260))'
+        : 'linear-gradient(180deg, oklch(0.98 0.005 260), oklch(0.94 0.01 260))',
+    }}>
+      <GradientDefs/>
+      <div style={{
+        position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, pointerEvents: 'none',
+        background: 'radial-gradient(ellipse 90% 40% at 50% 0%, oklch(0.5 0.22 var(--hue) / 0.25), transparent 70%)',
+      }}/>
+      <div style={{ position: 'relative', zIndex: 1, height: '100%', paddingTop: 12, overflowY: 'auto', overflowX: 'hidden' }}>
+        {screenEl}
+      </div>
+      {state.notifVisible && MOCK.notifications && <Toast notif={MOCK.notifications[0]} onDismiss={() => setState(x => ({ ...x, notifVisible: false }))}/>}
+      {state.screen !== 'chat' && <TabBar active={state.screen} onNav={onNav} onVoice={() => setState(x => ({ ...x, screen: 'chat', listening: true }))}/>}
+      {state.listening && state.screen !== 'chat' && <VoiceOverlay onClose={closeVoice}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<MobileApp/>);
+</script>
+</body>
+</html>
