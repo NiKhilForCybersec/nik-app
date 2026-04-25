@@ -33,19 +33,19 @@ jobs:
   mcp:
     name: MCP server — type-check
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: packages/mcp-nik
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
-          cache-dependency-path: packages/mcp-nik/package-lock.json
-      - name: Install
-        run: npm install
+      - name: Install web deps (shared contract imports)
+        working-directory: web
+        run: npm install --no-audit --no-fund
+      - name: Install MCP deps
+        working-directory: packages/mcp-nik
+        run: npm install --no-audit --no-fund
       - name: Type-check
+        working-directory: packages/mcp-nik
         run: npx tsc --noEmit -p .
 
   wiring-check:
