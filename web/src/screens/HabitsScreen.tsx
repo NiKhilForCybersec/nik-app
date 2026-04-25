@@ -4,10 +4,11 @@ import React from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useReducedMotion, animate } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import type { ScreenProps } from '../App';
-import { MOCK } from '../data/mock';
 import { getThemeVocab } from '../theme/themes';
 import { I } from '../components/icons';
 import { Chip } from '../components/primitives';
+import { useOp, useOpMutation } from '../lib/useOp';
+import { habits as habitOps, type Habit as DBHabit } from '../contracts/habits';
 
 // Cubic-bezier ease as a fixed-length tuple (framer-motion's `Easing` type
 // rejects plain `number[]`).
@@ -171,7 +172,26 @@ export default function HabitsScreen({ themeId }: ScreenProps) {
   const vocab = getThemeVocab(themeId ?? '');
   const reduce = !!useReducedMotion();
   const V = { habits: vocab.habits, streak: vocab.streak };
-  const [habits, setHabits] = React.useState<Habit[]>(MOCK.habits as Habit[]);
+
+  // ── Data layer (registry-backed) ───
+  const listQuery = useOp(habitOps.list, {});
+  const bumpMut = useOpMutation(habitOps.bump);
+  const createMut = useOpMutation(habitOps.create);
+  const removeMut = useOpMutation(habitOps.remove);
+
+  const habits: Habit[] = (listQuery.data ?? []).map((h: DBHabit) => ({
+    id: h.id,
+    name: h.name,
+    icon: h.icon,
+    hue: h.hue,
+    target: h.target,
+    done: h.done,
+    streak: h.streak,
+    unit: h.unit,
+    source: h.source,
+    auto: h.auto,
+  }));
+
   const [editing, setEditing] = React.useState(false);
   const [adding, setAdding] = React.useState(false);
   const [gpsEnabled, setGpsEnabled] = React.useState(true);
@@ -182,18 +202,25 @@ export default function HabitsScreen({ themeId }: ScreenProps) {
 
   const bump = (h: Habit) => {
     const wasDone = h.done >= h.target;
-    setHabits((hs) => hs.map((x) => x.id === h.id ? { ...x, done: Math.min(x.target, x.done + 1) } : x));
     setPulses((p) => ({ ...p, [h.id]: (p[h.id] || 0) + 1 }));
     const willBeDone = h.done + 1 >= h.target;
     if (!wasDone && willBeDone) {
       setConfetti((c) => ({ ...c, [h.id]: (c[h.id] || 0) + 1 }));
     }
+    bumpMut.mutate({ id: h.id, by: 1 });
   };
-  const remove = (id: string) => setHabits((hs) => hs.filter((h) => h.id !== id));
+  const remove = (id: string) => removeMut.mutate({ id });
   const totalPct = habits.length ? habits.reduce((s, h) => s + Math.min(1, h.done / h.target), 0) / habits.length : 0;
 
   const add = (newH: Partial<Habit> & { name: string; icon: string; hue: number; target: number; unit: string }) => {
-    setHabits((hs) => [...hs, { id: 'h' + Date.now(), done: 0, streak: 0, ...newH } as Habit]);
+    createMut.mutate({
+      name: newH.name,
+      target: newH.target,
+      unit: newH.unit,
+      icon: newH.icon as any,
+      hue: newH.hue,
+      source: 'manual',
+    });
     setAdding(false);
   };
 

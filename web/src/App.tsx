@@ -1,9 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { applyTheme, getTheme } from './theme/themes';
 import { TabBar, VoiceOverlay } from './components/shell';
 import { Toast } from './components/primitives';
 import { MOCK } from './data/mock';
 import { setStatusBar, prefs } from './native/capacitor';
+import { CommandBusProvider } from './lib/useCommand';
+import { useAuth } from './lib/auth';
+
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+});
 
 import HomeScreen from './screens/HomeScreen';
 import ChatScreen from './screens/ChatScreen';
@@ -31,13 +38,8 @@ import WidgetsScreen from './screens/WidgetsScreen';
 import StatsScreen from './screens/StatsScreen';
 import ComingSoonScreen from './screens/ComingSoonScreen';
 
-export type ScreenId =
-  | 'home' | 'chat' | 'habits' | 'fitness' | 'profile' | 'more'
-  | 'familyops' | 'family' | 'circle' | 'meds' | 'diary' | 'focus'
-  | 'score' | 'sleep' | 'money' | 'brief' | 'vault' | 'errands'
-  | 'couple' | 'kids' | 'onboard' | 'settings'
-  | 'quests' | 'voice' | 'widgets' | 'stats'
-  | 'comingsoon';
+export type { ScreenId, AppState } from './types/app-state';
+import type { ScreenId, AppState as AppStateBase } from './types/app-state';
 
 export type ScreenProps = {
   dark: boolean;
@@ -52,19 +54,8 @@ export type ScreenProps = {
   setState?: React.Dispatch<React.SetStateAction<AppState>>;
 };
 
-export type AppState = {
-  screen: ScreenId;
-  theme: string;
-  intensity: 'soft' | 'medium' | 'full';
-  density: 'cozy' | 'comfortable' | 'spacious';
-  fontPair: string;
-  persona: string;
-  listening: boolean;
-  notifVisible: boolean;
-  aesthetic?: string;
-  offline?: 'offline' | 'syncing' | null;
-  comingSoon?: string | null;
-};
+// AppState lives in ./types/app-state.ts (re-exported above for callers).
+type AppState = AppStateBase;
 
 const DEFAULTS: AppState = {
   screen: 'home',
@@ -81,6 +72,7 @@ type PersistedPrefs = Pick<AppState, 'theme' | 'intensity' | 'density' | 'fontPa
 const PREFS_KEY = 'nik:prefs:v1';
 
 export default function App() {
+  useAuth();      // Triggers Supabase sign-in/up on mount in dev.
   const [state, setState] = useState<AppState>(DEFAULTS);
   const [hydrated, setHydrated] = useState(false);
 
@@ -183,6 +175,8 @@ export default function App() {
   };
 
   return (
+    <QueryClientProvider client={queryClient}>
+    <CommandBusProvider state={state} setState={setState}>
     <div
       style={{
         width: '100%',
@@ -231,5 +225,7 @@ export default function App() {
       )}
       {state.listening && state.screen !== 'chat' && <VoiceOverlay onClose={closeVoice} />}
     </div>
+    </CommandBusProvider>
+    </QueryClientProvider>
   );
 }

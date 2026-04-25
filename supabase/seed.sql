@@ -1,0 +1,8 @@
+-- Nik — local dev seed.
+-- The dev user is created on first app load via supabase.auth.signUp() —
+-- doing that through the proper auth API is the only reliable way to get
+-- both auth.users + auth.identities populated. The web app then seeds
+-- sample habits for the new user (see web/src/lib/auth.ts).
+--
+-- This file is intentionally empty; everything happens in the app on
+-- first run. Reset with `supabase db reset --local` if needed.
