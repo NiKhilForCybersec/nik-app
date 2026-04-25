@@ -10,6 +10,10 @@ What's NOT done. Roughly ordered by likely-next.
 - ✅ CommandBus for AI-dispatched UI mutations
 - ✅ GitHub repo + CI (type-check + build + wiring-check)
 - ✅ Per-screen redesigns: Circle, Family Ops, Couple, Kids, Home, Habits, MoreScreen, ComingSoonScreen
+- ✅ Per-screen `manifest.ts` pattern + CI verifier (no wiring breaks)
+- ✅ `LLMProvider` + `LLMRouter` (SLM-ready) — ChatScreen flows through it; tool calls dispatch through CommandBus (verified: "switch to ghibli theme" flips theme live)
+- ✅ `scheduled_intents` + `user_memories` tables + RLS + `intents_tick()` RPC + `intents-tick` Edge Function (the "in 2 weeks remind me X" infrastructure)
+- ✅ `intents.schedule / list / cancel` + `memory.save / list / archive` ops in registry
 
 ## Near-term (next sprint or two)
 
