@@ -73,3 +73,5 @@ jobs:
             exit 1
           fi
           echo "✓ no raw Supabase calls in screens"
+      - name: Verify per-screen manifests match actual JSX usage
+        run: node scripts/check-wiring.mjs
