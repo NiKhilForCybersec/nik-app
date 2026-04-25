@@ -8,6 +8,7 @@ Architectural decisions, in chronological order. Each lives in its own file in [
 - [[Decisions/002 — Vite over Babel-in-browser]] — why we re-engineered after the visual proof
 - [[Decisions/003 — State machine instead of router]] — single useState, no React Router (yet)
 - [[Decisions/004 — Theme system]] — CSS custom properties, oklch, 5 universes
+- [[Decisions/005 — Pluggable LLM via router]] — `LLMProvider` interface + router for on-device SLM + cloud LLMs
 
 ## How to add one
 

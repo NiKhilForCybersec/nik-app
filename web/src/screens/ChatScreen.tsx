@@ -4,6 +4,8 @@ import type { ScreenProps } from '../App';
 import { MOCK } from '../data/mock';
 import { I } from '../components/icons';
 import { VoiceOrb, Waveform } from '../components/primitives';
+import { llm } from '../lib/llm';
+import { useCommand } from '../lib/useCommand';
 
 type ChatMsg = {
   from: 'user' | 'ai';
@@ -22,16 +24,41 @@ export default function ChatScreen({ listening, onVoice, setState }: ScreenProps
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [msgs, thinking]);
 
-  const send = (text: string) => {
+  const dispatch = useCommand();
+  const send = async (text: string) => {
     if (!text.trim()) return;
     const nu: ChatMsg[] = [...msgs, { from: 'user', text, time: 'now' }];
     setMsgs(nu);
     setInput('');
     setThinking(true);
-    setTimeout(() => {
+    try {
+      const response = await llm.complete({
+        messages: [
+          { role: 'system', content: 'You are Nik, an in-app personal assistant. Be concise. Use tools when the user asks for an action.' },
+          ...nu.map((m): { role: 'user' | 'assistant'; content: string } => ({
+            role: m.from === 'user' ? 'user' : 'assistant',
+            content: m.text,
+          })),
+        ],
+      });
+      // Dispatch any UI commands the model wants to run.
+      for (const tc of response.toolCalls) {
+        if (tc.name.startsWith('ui.')) dispatch(tc.name, tc.arguments);
+      }
+      setMsgs([
+        ...nu,
+        {
+          from: 'ai',
+          text: response.text || (response.toolCalls.length ? '✓ Done.' : '…'),
+          time: 'now',
+          actions: response.toolCalls.length ? undefined : ['Open reminder', 'Dismiss'],
+        },
+      ]);
+    } catch (e) {
+      setMsgs([...nu, { from: 'ai', text: `Sorry — ${(e as Error).message}`, time: 'now' }]);
+    } finally {
       setThinking(false);
-      setMsgs([...nu, { from: 'ai', text: getReply(text), time: 'now', actions: ['Confirm', 'Change'] }]);
-    }, 1400);
+    }
   };
 
   const suggestions = ['Plan my evening', 'Move my 3pm', 'How am I doing today?', 'Add a quest'];
@@ -135,11 +162,5 @@ export default function ChatScreen({ listening, onVoice, setState }: ScreenProps
   );
 }
 
-function getReply(text: string): string {
-  const t = text.toLowerCase();
-  if (t.includes('evening')) return "Tonight's plan: 6pm groceries (you'll be near), 7:30pm call with Mom, 9pm wind-down + meditate. I'll block focus hours between. Sound good?";
-  if (t.includes('3pm')) return "Moved to 3:30pm. Priya confirmed — she appreciated the heads-up. I've added 15 min of prep before the call.";
-  if (t.includes('how')) return "You're ahead on training (+18%), behind on hydration (-25%), and hit 4 of 7 habits. Sleep quality was great last night — 8.2h, 92% efficient. Keep going.";
-  if (t.includes('quest')) return "New quest logged. I'll notify you when context aligns — location, time, or energy level.";
-  return "Got it. I'll factor that into your day and let you know if anything shifts.";
-}
+// (Old hand-rolled `getReply` deleted — replies now come from `llm.complete()`
+//  which routes to the right provider via web/src/lib/llm/router.ts.)
