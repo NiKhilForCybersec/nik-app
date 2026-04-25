@@ -9,6 +9,7 @@ Architectural decisions, in chronological order. Each lives in its own file in [
 - [[Decisions/003 — State machine instead of router]] — single useState, no React Router (yet)
 - [[Decisions/004 — Theme system]] — CSS custom properties, oklch, 5 universes
 - [[Decisions/005 — Pluggable LLM via router]] — `LLMProvider` interface + router for on-device SLM + cloud LLMs
+- [[Decisions/006 — On-device SLM deferred to v2]] — picked Gemma 3n + llama.cpp for v2; Apple Foundation Models on iOS in the meantime
 
 ## How to add one
 

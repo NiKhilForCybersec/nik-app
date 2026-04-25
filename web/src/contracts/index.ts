@@ -16,16 +16,19 @@ import type { CommandDef } from '../lib/commands';
 import { habits } from './habits';
 import { ui } from './ui-commands';
 import { intents, memory } from './intents';
+import { events } from './events';
 
 export { habits } from './habits';
 export { ui } from './ui-commands';
 export { intents, memory } from './intents';
+export { events } from './events';
 
 // Flat registry — used by MCP tool generator + dev overlay.
 export const operations = {
   ...habits,
   ...intents,
   ...memory,
+  ...events,
 } as const;
 
 export const commands = {

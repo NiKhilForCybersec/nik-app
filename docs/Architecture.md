@@ -65,9 +65,20 @@ Vite output (`tsc -b && vite build`). Contains:
 
 Capacitor's `webDir` in `capacitor.config.json` points here.
 
-## What's NOT in the architecture
+## What's IN the architecture (running today)
 
-- **No backend** yet. Everything is client-side mock data. See [[Backlog]] for the implied schema and roadmap.
+- **Supabase local** (Postgres + Auth + RLS + Realtime + Storage) at `127.0.0.1:54321` via Colima.
+- **4 tables**: `profiles`, `habits`, `scheduled_intents`, `user_memories`. All RLS-protected, all CRUD via the registry (`useOp`/`useOpMutation`).
+- **Operations + Commands registry** at [`web/src/contracts/`](../web/src/contracts/). Single source of truth for backend ops + UI commands.
+- **Per-screen manifests** at `web/src/screens/<Name>Screen.manifest.ts` — declare what each screen reads/writes/dispatches/needs. CI wiring-check job fails the build on drift.
+- **MCP server** at [`packages/mcp-nik/`](../packages/mcp-nik/) — auto-registers every operation + command as MCP tools.
+- **LLM router** at [`web/src/lib/llm/`](../web/src/lib/llm/) — abstract `LLMProvider` interface, classifier-based router, mock + Anthropic implementations. Future on-device SLM is one new file.
+- **CommandBus** at [`web/src/lib/useCommand.tsx`](../web/src/lib/useCommand.tsx) — AI-dispatched UI mutations.
+- **Cron worker** at [`supabase/functions/intents-tick/`](../supabase/functions/intents-tick/) — fires scheduled intents on schedule.
+
+## What's NOT in the architecture (yet)
+
+- **Auth UI** — auto-signs-in as a seeded dev user. Real Google OAuth is on the backlog.
 - **No state management library** (Redux, Zustand, etc). Single useState in `App.tsx` is enough so far. Will add Context or Zustand when we have async data + sync.
 - **No router** — the prototype's state-machine pattern carried over. React Router 7 is installed but unused.
 - **No testing** yet. RTL + Vitest would be the natural picks; will add when shipping non-mock features.
