@@ -43,8 +43,11 @@ export function useAuth() {
             email: DEV_EMAIL, password: DEV_PASSWORD,
             options: { data: { name: 'Arjun' } },
           });
-          if (up.data.session) {
-            signed = { data: { user: up.data.user, session: up.data.session }, error: null };
+          if (up.data.session && up.data.user) {
+            signed = {
+              data: { user: up.data.user, session: up.data.session },
+              error: null,
+            };
           }
         }
         if (cancelled) return;
