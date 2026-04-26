@@ -50,7 +50,7 @@ const CATEGORIES: Category[] = [
       { id: 'fitness',      icon: 'dumbbell',  label: 'Fitness',        sub: 'Coach · library · plan',      hue: 30 },
       { id: 'hydration',    icon: 'water',     label: 'Hydration',      sub: 'ml today · goal · history',   hue: 200, tag: 'NEW' },
       { id: 'nutrition',    icon: 'utensils',  label: 'Nutrition',      sub: 'Macros · meals · deficit',    hue: 60,  tag: 'NEW' },
-      { id: 'cycle',        icon: 'refresh',   label: 'Cycle',          sub: 'Phase · symptoms · pred.',    hue: 320, tag: 'SOON' },
+      { id: 'cycle',        icon: 'refresh',   label: 'Cycle',          sub: 'Phase · symptoms · pred.',    hue: 320, tag: 'NEW' },
       { id: 'symptoms',     icon: 'alert',     label: 'Symptoms',       sub: 'Log + AI pattern find',       hue: 25,  tag: 'NEW' },
       { id: 'doctors',      icon: 'briefcase', label: 'Care Team',      sub: 'Doctors · history · insurance', hue: 200, tag: 'NEW' },
     ],
@@ -156,7 +156,7 @@ const isImplemented = (id: string) =>
    'focus','score','sleep','money','brief','vault','errands','couple','kids','onboard',
    'settings','quests','widgets','stats','more',
    // Phase C — items-backed dashboards
-   'reading','shopping','birthdays','hydration','calendar',
+   'reading','shopping','birthdays','hydration','calendar','cycle',
    'nutrition','symptoms','doctors',
    'learning','gratitude','goals','reflection','languages',
    'friends','network','pets',

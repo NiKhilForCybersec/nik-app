@@ -8,7 +8,7 @@ export type ScreenId =
   | 'couple' | 'kids' | 'onboard' | 'settings'
   | 'quests' | 'voice' | 'widgets' | 'stats'
   | 'comingsoon' | 'dev'
-  | 'reading' | 'shopping' | 'birthdays' | 'hydration' | 'calendar'
+  | 'reading' | 'shopping' | 'birthdays' | 'hydration' | 'calendar' | 'cycle'
   | 'nutrition' | 'symptoms' | 'doctors'
   | 'learning' | 'gratitude' | 'goals' | 'reflection' | 'languages'
   | 'friends' | 'network' | 'pets'

@@ -52,6 +52,7 @@ import ShoppingScreen from './screens/ShoppingScreen';
 import BirthdaysScreen from './screens/BirthdaysScreen';
 import HydrationScreen from './screens/HydrationScreen';
 import CalendarScreen from './screens/CalendarScreen';
+import CycleScreen from './screens/CycleScreen';
 // Phase C — items-backed dashboards. Each is a thin wrapper around
 // ItemsListScreen with a different `kind`. Adding a new one is now
 // one screen file + one manifest + one entry in PHASE_C_SCREENS below.
@@ -219,6 +220,7 @@ export default function App() {
       case 'birthdays': return <BirthdaysScreen {...screenProps} />;
       case 'hydration': return <HydrationScreen {...screenProps} />;
       case 'calendar':  return <CalendarScreen {...screenProps} />;
+      case 'cycle':     return <CycleScreen {...screenProps} />;
       case 'nutrition':     return <NutritionScreen {...screenProps} />;
       case 'symptoms':      return <SymptomsScreen {...screenProps} />;
       case 'doctors':       return <DoctorsScreen {...screenProps} />;

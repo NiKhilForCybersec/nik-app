@@ -14,6 +14,8 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 | _The Chat screen replays the last N messages on mount + appends new ones_ | |
 | [web/src/contracts/circle.ts](../web/src/contracts/circle.ts) | `CircleMember`, `PRIVACY_CATEGORIES`, `PrivacyCategoryId`, `Relation`, `ShareTier`, `SharingMatrix`, `Status`, `TRUST_TIERS`, `canCircleView`, `circle` |
 | _Read/write the user's family circle. Each row represents a person_ | |
+| [web/src/contracts/cycle.ts](../web/src/contracts/cycle.ts) | `CycleEvent`, `CyclePhase`, `CycleToday`, `cycle` |
+| _Append-only event ledger. The "current phase" is computed at read_ | |
 | [web/src/contracts/diary.ts](../web/src/contracts/diary.ts) | `DiaryEntry`, `Pillar`, `diary` |
 | [web/src/contracts/events.ts](../web/src/contracts/events.ts) | `Event`, `EventKind`, `events` |
 | _Generic feed every external integration MCP server (Gmail, Calendar,_ | |
@@ -23,7 +25,7 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 | _Single source of truth for everything the AI/app/backend can do_ | |
 | [web/src/contracts/hydration.ts](../web/src/contracts/hydration.ts) | `HydrationIntake`, `HydrationToday`, `hydration` |
 | _Append-only intake ledger. Daily totals computed on read. The default_ | |
-| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `calendar`, `canCircleView`, `chat`, `circle`, `commands`, `diary`, `events`, `familyOps`, `habits`, `hydration`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
+| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `calendar`, `canCircleView`, `chat`, `circle`, `commands`, `cycle`, `diary`, `events`, `familyOps`, `habits`, `hydration`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
 | _Re-exports every operation and UI command. Imports here are the_ | |
 | [web/src/contracts/intents.ts](../web/src/contracts/intents.ts) | `Intent`, `IntentKind`, `Memory`, `MemoryKind`, `intents`, `memory` |
 | _Operations the AI uses to remember things and schedule callbacks._ | |
@@ -127,6 +129,9 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/CoupleScreen.manifest.ts](../web/src/screens/CoupleScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/CoupleScreen.tsx](../web/src/screens/CoupleScreen.tsx) | `*default*`, `CoupleScreen` |
+| [web/src/screens/CycleScreen.manifest.ts](../web/src/screens/CycleScreen.manifest.ts) | `manifest` |
+| [web/src/screens/CycleScreen.tsx](../web/src/screens/CycleScreen.tsx) | `*default*`, `CycleScreen` |
+| _Hero card shows current phase + cycle day + days-until-next._ | |
 | [web/src/screens/DevScreen.manifest.ts](../web/src/screens/DevScreen.manifest.ts) | `manifest` |
 | _Dev console — gated on import.meta.env.DEV. Doesn't read any single_ | |
 | [web/src/screens/DevScreen.tsx](../web/src/screens/DevScreen.tsx) | `*default*`, `DevScreen` |
@@ -277,6 +282,6 @@ _Shared type-only modules._
 
 ---
 
-**Stats**: 160 files, 388 exports.
+**Stats**: 163 files, 396 exports.
 
-**Last regenerated**: 2026-04-26T06:55:24.873Z.
+**Last regenerated**: 2026-04-26T07:03:01.174Z.
