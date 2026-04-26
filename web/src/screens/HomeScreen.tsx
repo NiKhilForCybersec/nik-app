@@ -169,15 +169,15 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
   }, []);
   const weather = '—';
 
-  // ── Live "ticking" data feel — updates once per second ──
+  // The animated EKG sparkline below uses `tick` as a time source so
+  // the line animates even when there's no real data — it's a visual
+  // indicator that the panel WOULD be live once HealthKit ingests.
+  // The numbers themselves are NO LONGER fake — see vitals tile.
   const [tick, setTick] = React.useState(0);
   React.useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1200);
     return () => clearInterval(id);
   }, []);
-  const liveSteps = 5240 + ((tick * 3) % 180);
-  const liveHR = 68 + Math.round(Math.sin(tick * 0.4) * 4);
-  const liveKcal = 1840 + (tick % 6);
 
   // Pick the highlight habit (closest to complete but not done, else most-streaked)
   const highlight = React.useMemo(() => {
@@ -374,7 +374,9 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ fontSize: 10, color: 'oklch(0.85 0.14 var(--hue))', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>NIK SCORE</div>
-            <div style={{ fontSize: 9, color: 'oklch(0.75 0.18 140)', fontFamily: 'var(--font-mono)' }}>+28</div>
+            <div style={{ fontSize: 9, color: (score?.delta_7d ?? 0) >= 0 ? 'oklch(0.75 0.18 140)' : 'oklch(0.75 0.18 25)', fontFamily: 'var(--font-mono)' }}>
+              {score?.delta_7d != null && score.delta_7d !== 0 ? `${score.delta_7d > 0 ? '+' : ''}${score.delta_7d}` : '—'}
+            </div>
           </div>
           <div className="display" style={{ fontSize: 38, fontWeight: 500, lineHeight: 1, marginTop: 10, color: 'oklch(0.94 0.12 var(--hue))', fontVariantNumeric: 'tabular-nums' }}>
             <Counter to={score?.total ?? 0} reduce={reduce} duration={1.0} />
@@ -599,9 +601,9 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
             <Chip tone="default" size="sm">PREVIEW</Chip>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            <LiveStat label="STEPS" value={<SmoothNumber value={liveSteps} format={(n) => n.toLocaleString()} reduce={reduce} />} target="8k" hue={40} />
-            <LiveStat label="HEART" value={<SmoothNumber value={liveHR} reduce={reduce} />} unit="BPM" hue={25} pulse />
-            <LiveStat label="KCAL" value={<SmoothNumber value={liveKcal} reduce={reduce} />} target="2.2k" hue={150} />
+            <LiveStat label="STEPS" value="—" target="8k"   hue={40} />
+            <LiveStat label="HEART" value="—" unit="BPM"     hue={25} />
+            <LiveStat label="KCAL"  value="—" target="2.2k"  hue={150} />
           </div>
           {/* Animated drawn EKG sparkline */}
           <svg width="100%" height="22" viewBox="0 0 300 22" style={{ marginTop: 8, opacity: 0.85 }}>

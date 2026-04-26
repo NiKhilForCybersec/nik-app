@@ -3,8 +3,9 @@
    gradient PinnedTile heroes, glass cards, mono-caps section labels.
 */
 import React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ScreenProps } from '../App';
-import { useOp } from '../lib/useOp';
+import { useOp, useOpMutation } from '../lib/useOp';
 import { circle as circleOps, canCircleView, TRUST_TIERS } from '../contracts/circle';
 import type { CircleMember } from '../contracts/circle';
 import { I } from '../components/icons';
@@ -126,6 +127,19 @@ export default function CircleScreen({ onNav, state, setState }: ScreenProps) {
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = React.useState(false);
   const [showLog, setShowLog] = React.useState(false);
+  const [showAdd, setShowAdd] = React.useState(false);
+
+  const addMember = useOpMutation(circleOps.add);
+  const removeMember = useOpMutation(circleOps.remove);
+  const qc = useQueryClient();
+  const refresh = () => qc.invalidateQueries({ queryKey: ['circle.list'] });
+
+  const handleRemove = async (memberId: string, name: string) => {
+    if (memberId === 'self') return;
+    if (!window.confirm(`Remove ${name} from your circle? Their shared data will no longer be visible to you.`)) return;
+    await removeMember.mutateAsync({ id: memberId });
+    void refresh();
+  };
 
   const selected = selectedId ? members.find(m => m.id === selectedId) : null;
 
@@ -135,34 +149,44 @@ export default function CircleScreen({ onNav, state, setState }: ScreenProps) {
   return (
     <div style={{ padding: '8px 16px 100px', color: 'var(--fg)' }}>
       {/* ─── HEADER ───────────────────────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
-        <div
-          style={{
-            fontSize: 11,
-            color: 'var(--fg-3)',
-            letterSpacing: 2,
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          FAMILY · {members.length} MEMBERS · {onlineCount} ONLINE
+      <div style={{ marginBottom: 24, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, fontFamily: 'var(--font-mono)' }}>
+            FAMILY · {members.length} MEMBERS · {onlineCount} ONLINE
+          </div>
+          <div className="display" style={{ fontSize: 32, fontWeight: 500, lineHeight: 1.05, marginTop: 4, letterSpacing: -0.5 }}>
+            Your circle
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 6, lineHeight: 1.5 }}>
+            The people you carry, and the people who carry you. Tap anyone to see
+            how they're doing — or what you've chosen to let them see about you.
+          </div>
         </div>
-        <div
-          className="display"
-          style={{
-            fontSize: 32,
-            fontWeight: 500,
-            lineHeight: 1.05,
-            marginTop: 4,
-            letterSpacing: -0.5,
-          }}
-        >
-          Your circle
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 6, lineHeight: 1.5 }}>
-          The people you carry, and the people who carry you. Tap anyone to see
-          how they're doing — or what you've chosen to let them see about you.
+        <div onClick={() => setShowAdd(true)} className="tap" title="Add a circle member" style={{
+          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+          background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 0 12px oklch(0.78 0.16 var(--hue) / 0.4)',
+        }}>
+          <I.plus size={20} stroke="#06060a" sw={2.4} />
         </div>
       </div>
+
+      {/* Add-member sheet (minimal) */}
+      {showAdd && (
+        <AddMemberSheet
+          onClose={() => setShowAdd(false)}
+          onSubmit={async (input) => {
+            try {
+              await addMember.mutateAsync(input);
+              void refresh();
+              setShowAdd(false);
+            } catch (e) {
+              alert(`Couldn't add: ${(e as Error).message}`);
+            }
+          }}
+        />
+      )}
 
       {/* ─── LIVE STATUS STRIP ───────────────────────────── */}
       <div style={{ marginBottom: 24 }}>
@@ -529,14 +553,30 @@ export default function CircleScreen({ onNav, state, setState }: ScreenProps) {
           }}
         >
           {members.map(m => (
-            <MemberCard
-              key={m.id}
-              m={m}
-              isMe={m.id === me}
-              sharing={sharing}
-              meId={me}
-              onTap={() => setSelectedId(m.id)}
-            />
+            <div key={m.id} style={{ position: 'relative' }}>
+              <MemberCard
+                m={m}
+                isMe={m.id === me}
+                sharing={sharing}
+                meId={me}
+                onTap={() => setSelectedId(m.id)}
+              />
+              {!m.self && (
+                <div
+                  onClick={(e) => { e.stopPropagation(); void handleRemove(m.id, m.name); }}
+                  className="tap"
+                  title={`Remove ${m.name} from circle`}
+                  style={{
+                    position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 7,
+                    background: 'oklch(0.10 0.02 260 / 0.6)', backdropFilter: 'blur(4px)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: '1px solid var(--hairline)', opacity: 0.7,
+                  }}
+                >
+                  <I.close size={10} stroke="var(--fg-2)" />
+                </div>
+              )}
+            </div>
           ))}
         </div>
       </div>
@@ -901,3 +941,119 @@ const MemberCard: React.FC<{
     </div>
   );
 };
+
+// ── AddMemberSheet ──────────────────────────────────────
+// Minimal modal: lets the user add a new circle member by name +
+// relation. Cross-account user search is a multi-tenant feature
+// (deferred — see docs/Concerns.md). For now this just inserts a
+// row into the user's own circle_members table.
+
+const RELATIONS = ['partner','child','parent','sibling','grandparent','caregiver','friend','family'] as const;
+const TIERS = ['inner','family','kid','caregiver'] as const;
+
+const AddMemberSheet: React.FC<{
+  onClose: () => void;
+  onSubmit: (input: { memberId: string; name: string; role: string; relation: typeof RELATIONS[number]; shareTier: typeof TIERS[number]; hue: number }) => void | Promise<void>;
+}> = ({ onClose, onSubmit }) => {
+  const [name, setName] = React.useState('');
+  const [relation, setRelation] = React.useState<typeof RELATIONS[number]>('family');
+  const [tier, setTier] = React.useState<typeof TIERS[number]>('family');
+  const [hue, setHue] = React.useState(220);
+  const [busy, setBusy] = React.useState(false);
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      const memberId = name.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 40);
+      await onSubmit({
+        memberId, name: name.trim(), role: relation === 'family' ? 'Family' : relation[0]!.toUpperCase() + relation.slice(1),
+        relation, shareTier: tier, hue,
+      });
+    } finally { setBusy(false); }
+  };
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'oklch(0 0 0 / 0.5)',
+      backdropFilter: 'blur(8px)', zIndex: 100,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} className="glass scanlines" style={{
+        padding: 22, width: '100%', maxWidth: 380, position: 'relative', overflow: 'hidden',
+      }}>
+        <HUDCorner position="tl" /><HUDCorner position="tr" /><HUDCorner position="bl" /><HUDCorner position="br" />
+        <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>ADD TO CIRCLE</div>
+        <div className="display" style={{ fontSize: 22, fontWeight: 500, marginTop: 4, marginBottom: 14 }}>Who are you adding?</div>
+
+        <Field label="Name">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Their name" autoFocus
+            style={inputStyle} />
+        </Field>
+
+        <Field label="Relation">
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {RELATIONS.map((r) => (
+              <div key={r} onClick={() => setRelation(r)} className="tap" style={{
+                padding: '5px 9px', borderRadius: 99, fontSize: 10, fontFamily: 'var(--font-mono)',
+                background: relation === r ? 'oklch(0.78 0.16 var(--hue) / 0.2)' : 'oklch(1 0 0 / 0.04)',
+                border: '1px solid ' + (relation === r ? 'oklch(0.78 0.16 var(--hue) / 0.5)' : 'var(--hairline)'),
+                color: relation === r ? 'oklch(0.9 0.14 var(--hue))' : 'var(--fg-2)',
+              }}>{r}</div>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="What can they see about you?">
+          <div style={{ display: 'flex', gap: 4 }}>
+            {TIERS.map((t) => (
+              <div key={t} onClick={() => setTier(t)} className="tap" style={{
+                flex: 1, padding: '6px 8px', borderRadius: 8, fontSize: 11, textAlign: 'center',
+                fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
+                background: tier === t ? 'oklch(0.78 0.16 var(--hue) / 0.2)' : 'oklch(1 0 0 / 0.04)',
+                border: '1px solid ' + (tier === t ? 'oklch(0.78 0.16 var(--hue) / 0.5)' : 'var(--hairline)'),
+                color: tier === t ? 'oklch(0.9 0.14 var(--hue))' : 'var(--fg-2)',
+              }}>{t}</div>
+            ))}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--fg-3)', marginTop: 6, lineHeight: 1.4 }}>
+            {TRUST_TIERS[tier].desc} — sees: {TRUST_TIERS[tier].cats.join(', ')}
+          </div>
+        </Field>
+
+        <Field label="Avatar hue">
+          <input type="range" min={0} max={360} value={hue} onChange={(e) => setHue(Number(e.target.value))} style={{ width: '100%', accentColor: `oklch(0.78 0.16 ${hue})` }} />
+        </Field>
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+          <div onClick={onClose} className="tap" style={{
+            flex: 1, padding: '10px 12px', borderRadius: 10, textAlign: 'center', fontSize: 13,
+            background: 'oklch(1 0 0 / 0.04)', border: '1px solid var(--hairline)', color: 'var(--fg-2)',
+          }}>Cancel</div>
+          <div onClick={() => !busy && void submit()} className="tap" style={{
+            flex: 1, padding: '10px 12px', borderRadius: 10, textAlign: 'center', fontSize: 13, fontWeight: 600,
+            background: name.trim()
+              ? 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))'
+              : 'oklch(1 0 0 / 0.04)',
+            color: name.trim() ? '#06060a' : 'var(--fg-3)', opacity: busy ? 0.5 : 1,
+          }}>{busy ? 'Adding…' : 'Add'}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '8px 10px', borderRadius: 8,
+  background: 'oklch(1 0 0 / 0.04)', border: '1px solid var(--hairline)',
+  color: 'var(--fg)', fontSize: 13, outline: 'none', fontFamily: 'var(--font-body)',
+};
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div style={{ marginBottom: 10 }}>
+    <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 5 }}>
+      {label.toUpperCase()}
+    </div>
+    {children}
+  </div>
+);

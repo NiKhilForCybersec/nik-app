@@ -16,6 +16,21 @@ This file is auto-loaded into context at session start via the wiki + linked fro
 
 ## Open
 
+### 2026-04-26 · MoreScreen tile sub-text is hardcoded
+Examples: "Diary · 184 entries · last 2h ago", "Focus Mode · 50 min · deep · forest", "Nik Score · 742 · +28 this week", "Daily Brief · ~4 min · audio · today". All in `web/src/screens/MoreScreen.tsx` `CATEGORIES` config. **Fix:** either (a) replace with stable descriptive text ("audio · curated", "tracker", etc.) or (b) wire each tile to its corresponding op (diary.list count, score.get total, etc.) — option (b) is N more useOp calls on a single screen which is heavy; (a) is the pragmatic fix.
+
+### 2026-04-26 · Streak (42 days), Nik Score (742), pillar values, profile stats — all still seeded
+Same class of bug as the habit one. profile.streak / profile.xp / profile.level / profile.stats / score.total / score.delta_7d / score.pillars were seeded at signup to specific demo values so they appear live but are static. **Fix:** strip all "fake real" defaults from the profile + score seed; everything starts at 0/empty until real activity computes them. Score derivation needs the score Edge Function (Layer 2 of agent plan) to actually update from score_events.
+
+### 2026-04-26 · Vitals tile still shows fake numbers (5240 steps + sine HR)
+Already labelled "DEMO PREVIEW" but the values themselves are still hardcoded sine waves. Either: (a) zero them out until HealthKit ships, OR (b) compute lightly from existing tables (steps from events.list where source=apple-health, HR from sleep_nights.resting_hr). **Pragmatic for now:** option (a) — show "—" or "no data, connect HealthKit" instead of inventing numbers.
+
+### 2026-04-26 · Family circle: no UI to add / remove members
+The `circle.add` and `circle.remove` ops exist, AI can call them via Chat — but the CircleScreen has no `+` button or X-on-member affordance. **Fix:** add minimal UI for both. (User-search across other users' accounts is a separate multi-tenant feature requiring an invite flow — defer.)
+
+### 2026-04-26 · NEED: AI-powered widget playground
+Widgets system + dedicated playground page where Nik AI creates widgets on the fly via real LLM call. Two flows for picking: AI suggests + creates OR user manually picks from a library. Must be live, granular, controllable. **This is the project_widget_system_plan.md item — full session of work, saved to memory.**
+
 ### 2026-04-26 · Other habit tiles (Read, Sleep, Walk, Train, Meditate, Stretch) showing seeded values, not real activity
 Same class of bug as the Hydrate one. Habits' `done` values were seeded at signup (Read 22/30, Sleep 7/7, Walk 5240/8000, Train 60/60, Meditate 0/10) so they LOOK live but are static demo numbers. **Fix:** start every habit at done=0 in seed (honest empty state). Where we have a real source (Sleep ← sleep_nights last night), derive on read like Hydrate does.
 

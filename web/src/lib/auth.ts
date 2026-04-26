@@ -263,20 +263,24 @@ async function seedSampleScoreIfEmpty(userId: string) {
 }
 
 async function seedScoreSnapshot(userId: string) {
+  // Honest empty: every value starts at 0. Real values arrive when the
+  // score Edge Function (Layer 2 of the autonomous-agent plan) ingests
+  // score_events. Until then, pillars + total stay at 0, and the
+  // Score screen reflects "no activity yet."
   const { error: snapErr } = await supabase.from('user_scores').insert({
     user_id: userId,
-    total: 742,
-    delta_7d: 28,
-    rank: 'Operative II',
-    next_rank: 'Operative I',
-    next_rank_at: 800,
+    total: 0,
+    delta_7d: 0,
+    rank: 'Newcomer',
+    next_rank: 'Operative II',
+    next_rank_at: 100,
     pillars: {
-      focus:  { value: 218, max: 300, weeklyGoal: 240, trend: [180, 195, 210, 220, 215, 218, 218] },
-      health: { value: 195, max: 250, weeklyGoal: 220, trend: [170, 185, 190, 195, 195, 195, 195] },
-      mind:   { value: 184, max: 250, weeklyGoal: 200, trend: [150, 160, 170, 175, 180, 184, 184] },
-      family: { value: 145, max: 200, weeklyGoal: 170, trend: [130, 135, 140, 142, 144, 145, 145] },
+      focus:  { value: 0, max: 300, weeklyGoal: 240, trend: [0, 0, 0, 0, 0, 0, 0] },
+      health: { value: 0, max: 250, weeklyGoal: 220, trend: [0, 0, 0, 0, 0, 0, 0] },
+      mind:   { value: 0, max: 250, weeklyGoal: 200, trend: [0, 0, 0, 0, 0, 0, 0] },
+      family: { value: 0, max: 200, weeklyGoal: 170, trend: [0, 0, 0, 0, 0, 0, 0] },
     },
-    today_contribution: 18,
+    today_contribution: 0,
   });
   if (snapErr) console.warn('[seed] user_scores insert failed', snapErr);
 }
@@ -415,27 +419,13 @@ async function seedSampleFamilyOpsIfEmpty(userId: string) {
   }
 }
 
-async function seedSampleProfileIfEmpty(userId: string, _displayName?: string) {
-  // The on-signup trigger has already inserted a minimal row. Only fill
-  // in demo level/xp/streak/stats if it's still pristine (level=1, xp=0).
-  const { data } = await supabase
-    .from('profiles')
-    .select('level, xp')
-    .eq('id', userId)
-    .maybeSingle();
-  if (!data || data.level !== 1 || data.xp !== 0) return;
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      title: 'Operative II',
-      level: 27,
-      xp: 1840,
-      xp_max: 2400,
-      streak: 42,
-      stats: { STR: 18, INT: 24, DEX: 15, VIT: 21, FOC: 30 },
-    })
-    .eq('id', userId);
-  if (error) console.warn('[seed] profiles update failed', error);
+async function seedSampleProfileIfEmpty(_userId: string, _displayName?: string) {
+  // The on-signup trigger has already inserted a minimal profile row
+  // with name/title/level=1/xp=0/streak=0/stats={10,10,10,10,10}.
+  // We deliberately don't pad it with fake "demo" values anymore —
+  // every visible metric must come from real activity, not the seed.
+  // (Level / XP / streak / stats become derived once the score Edge
+  // Function lands; until then the user starts at zero, honestly.)
 }
 
 async function seedSampleQuestsIfEmpty(userId: string) {
