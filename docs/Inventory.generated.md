@@ -274,4 +274,4 @@ _Shared type-only modules._
 
 **Stats**: 157 files, 383 exports.
 
-**Last regenerated**: 2026-04-26T06:17:01.358Z.
+**Last regenerated**: 2026-04-26T06:33:37.891Z.

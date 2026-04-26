@@ -24,17 +24,18 @@ import { useCommand } from '../lib/useCommand';
 import { useAuth } from '../lib/auth';
 import { zodToJsonSchema } from '../lib/llm/zodToJsonSchema';
 
-type PanelId = 'registry' | 'db' | 'drift' | 'health' | 'llm' | 'feed' | 'nav' | 'graph';
+type PanelId = 'registry' | 'db' | 'drift' | 'health' | 'llm' | 'feed' | 'nav' | 'hard' | 'graph';
 
 const PANELS: { id: PanelId; label: string; icon: keyof typeof I }[] = [
-  { id: 'registry', label: 'Registry', icon: 'sparkle' },
-  { id: 'db',       label: 'Database', icon: 'grid'   },
-  { id: 'drift',    label: 'Drift',    icon: 'check'  },
-  { id: 'health',   label: 'Health',   icon: 'heart'  },
-  { id: 'llm',      label: 'LLM',      icon: 'mic'    },
-  { id: 'feed',     label: 'Activity', icon: 'flame'  },
+  { id: 'registry', label: 'Registry',   icon: 'sparkle' },
+  { id: 'db',       label: 'Database',   icon: 'grid'   },
+  { id: 'drift',    label: 'Drift',      icon: 'check'  },
+  { id: 'health',   label: 'Health',     icon: 'heart'  },
+  { id: 'llm',      label: 'LLM',        icon: 'mic'    },
+  { id: 'feed',     label: 'Activity',   icon: 'flame'  },
   { id: 'nav',      label: 'Navigation', icon: 'location' },
-  { id: 'graph',    label: 'Graph',    icon: 'globe'  },
+  { id: 'hard',     label: 'Hardcoded',  icon: 'alert'  },
+  { id: 'graph',    label: 'Graph',      icon: 'globe'  },
 ];
 
 export default function DevScreen(_p: ScreenProps) {
@@ -78,6 +79,7 @@ export default function DevScreen(_p: ScreenProps) {
       {tab === 'llm'      && <LLMPanel />}
       {tab === 'feed'     && <FeedPanel />}
       {tab === 'nav'      && <NavigationPanel />}
+      {tab === 'hard'     && <HardcodedPanel />}
       {tab === 'graph'    && <GraphPanel />}
     </div>
   );
@@ -667,6 +669,109 @@ function NavigationPanel() {
             </div>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ── Hardcoded panel ────────────────────────────────────────
+//
+// Static analysis can't know "this number should come from the DB" —
+// so we use heuristics. For each screen source, flag suspicious
+// literals: long sentences in JSX text, multi-digit numbers between
+// element tags, time strings, "X out of Y" patterns. False positives
+// are fine; the panel is a review aid, not a blocker. The user
+// scans, decides, fixes.
+
+type HardLiteral = { screen: string; line: number; kind: string; text: string; snippet: string };
+
+const HARD_PATTERNS: { kind: string; re: RegExp }[] = [
+  // > content with 6+ words (likely demo copy, not UI labels)
+  { kind: 'sentence', re: />\s*([A-Z][^<>{}\n]{30,200})</g },
+  // bare 2+ digit numbers between > and < (likely values that should be derived)
+  { kind: 'number',   re: />\s*([0-9]{2,}(?:\.[0-9]+)?(?:[a-z%]+)?)\s*</g },
+  // "X / Y" or "X of Y" patterns inline
+  { kind: 'ratio',    re: />\s*([0-9]+\s*\/\s*[0-9]+(?:\s*[a-z]+)?)\s*</g },
+  // time-of-day strings inline
+  { kind: 'time',     re: />\s*([0-9]{1,2}:[0-9]{2}\s*(?:AM|PM|am|pm)?)\s*</g },
+];
+
+// Allow-list of safe literals that show up as labels/eyebrows/icons
+// — not data.
+const HARD_ALLOW = [
+  /^[A-Z\s·\-—]+$/,       // mono-caps eyebrows
+  /^[\W·]+$/,             // pure separators / icons
+  /^(NEW|SOON|BETA|DONE|AUTO|DEMO|PREVIEW|SYNCING|OK|ERR|UNTESTED|ACTIVE)$/,
+];
+
+function HardcodedPanel() {
+  const findings = React.useMemo(() => {
+    const out: HardLiteral[] = [];
+    for (const [path, src] of Object.entries(screenSources)) {
+      const screen = path.split('/').pop()!.replace(/\.tsx$/, '');
+      const lines = src.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        for (const { kind, re } of HARD_PATTERNS) {
+          re.lastIndex = 0;
+          let m;
+          while ((m = re.exec(line)) !== null) {
+            const text = m[1].trim();
+            if (text.length < 2) continue;
+            if (HARD_ALLOW.some((al) => al.test(text))) continue;
+            // Skip JSX expressions ({foo}) — those are dynamic.
+            if (text.startsWith('{') || text.endsWith('}')) continue;
+            out.push({
+              screen, line: i + 1, kind, text,
+              snippet: line.trim().slice(0, 140),
+            });
+          }
+        }
+      }
+    }
+    return out;
+  }, []);
+
+  const byScreen = new Map<string, HardLiteral[]>();
+  for (const f of findings) {
+    if (!byScreen.has(f.screen)) byScreen.set(f.screen, []);
+    byScreen.get(f.screen)!.push(f);
+  }
+  const sorted = Array.from(byScreen.entries()).sort(([, a], [, b]) => b.length - a.length);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+        <Chip tone={findings.length > 50 ? 'warn' : 'default'} size="sm">{findings.length} SUSPICIOUS LITERALS</Chip>
+        <Chip tone="default" size="sm">{byScreen.size} SCREENS WITH FINDINGS</Chip>
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginBottom: 12, lineHeight: 1.5 }}>
+        Heuristic regex finds JSX text that LOOKS like it should be derived (sentences, multi-digit numbers, ratios, times).
+        False positives expected — the panel is a review aid, not a blocker. Eyebrows + icon labels are allow-listed.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {sorted.map(([screen, items]) => (
+          <details key={screen} className="glass" style={{ padding: 8, borderRadius: 8 }}>
+            <summary style={{ cursor: 'pointer', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--fg)' }}>
+              {screen} <span style={{ color: 'var(--fg-3)' }}>· {items.length}</span>
+            </summary>
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {items.slice(0, 30).map((f, i) => (
+                <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-2)', display: 'flex', gap: 6 }}>
+                  <span style={{
+                    fontSize: 8, padding: '1px 5px', borderRadius: 3, alignSelf: 'flex-start',
+                    background: 'oklch(0.85 0.16 60 / 0.15)', color: 'oklch(0.85 0.16 60)',
+                  }}>{f.kind.toUpperCase()}</span>
+                  <span style={{ color: 'var(--fg-3)' }}>L{f.line}</span>
+                  <span style={{ color: 'var(--fg)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    "{f.text.slice(0, 80)}"
+                  </span>
+                </div>
+              ))}
+              {items.length > 30 && <div style={{ fontSize: 9, color: 'var(--fg-3)' }}>+{items.length - 30} more</div>}
+            </div>
+          </details>
+        ))}
       </div>
     </div>
   );

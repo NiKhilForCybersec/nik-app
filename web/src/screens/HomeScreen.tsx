@@ -12,6 +12,9 @@ import { habits as habitsOps } from '../contracts/habits';
 import { quests as questsOps } from '../contracts/quests';
 import { score as scoreOps } from '../contracts/score';
 import { hydration as hydrationOps } from '../contracts/hydration';
+import { circle as circleOps } from '../contracts/circle';
+import { diary as diaryOps } from '../contracts/diary';
+import { events as eventsOps } from '../contracts/events';
 import type { ScreenId } from '../types/app-state';
 
 // Map habit-name keywords to dedicated detail screens. When a habit
@@ -26,6 +29,31 @@ const HABIT_NAME_TO_SCREEN: { match: RegExp; screen: ScreenId }[] = [
   { match: /meditat/i,      screen: 'focus' },
   { match: /diary|journal|reflect/i, screen: 'diary' },
 ];
+
+/** mood (1-5) → small emoji glyph for the diary tile. */
+function moodEmoji(mood: number | null | undefined): string {
+  if (mood == null) return '·';
+  if (mood >= 5) return '☀';
+  if (mood >= 4) return '◐';
+  if (mood >= 3) return '○';
+  if (mood >= 2) return '◑';
+  return '●';
+}
+
+/** "2h ago" / "yesterday" / "Mar 12" relative time string. */
+function relTime(iso: string): string {
+  const d = new Date(iso);
+  const ms = Date.now() - d.getTime();
+  const m = Math.floor(ms / 60_000);
+  if (m < 1) return 'just now';
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const days = Math.floor(h / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days}d ago`;
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
 
 function habitTargetScreen(name: string): ScreenId {
   for (const { match, screen } of HABIT_NAME_TO_SCREEN) {
@@ -44,16 +72,6 @@ function hydrateExtra(name: string, today: { totalMl: number; goalMl: number } |
   return undefined;
 }
 
-// Until the family-circle contract lands, the Home avatar row uses these
-// generic placeholders. Names are universal-locale-neutral letters so
-// the design renders regardless of the user's region.
-const FAMILY_PLACEHOLDERS: Array<{ name: string; hue: number; status: 'online'|'away'|'offline'; self?: boolean }> = [
-  { name: 'M', hue: 320, status: 'online' },
-  { name: 'A', hue: 220, status: 'online', self: true },
-  { name: 'K', hue: 30,  status: 'away' },
-  { name: 'D', hue: 150, status: 'online' },
-  { name: 'R', hue: 260, status: 'offline' },
-];
 
 // Cubic-bezier ease — typed as a fixed-length tuple so framer-motion's
 // `Easing` type accepts it (otherwise it widens to `number[]`).
@@ -118,6 +136,9 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
   const { data: activeQuests = [] } = useOp(questsOps.list, { status: 'active', limit: 5 });
   const { data: score } = useOp(scoreOps.get, {});
   const { data: hydrationToday } = useOp(hydrationOps.today, {});
+  const { data: circleMembers = [] } = useOp(circleOps.list, {});
+  const { data: diaryEntries = [] } = useOp(diaryOps.list, { limit: 1 });
+  const { data: upcomingEvents = [] } = useOp(eventsOps.list, { limit: 5 });
 
   const u = {
     name: profile?.name ?? 'Friend',
@@ -389,7 +410,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
           />
           <div style={{ fontSize: 10, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>FOCUS</div>
           <div className="display" style={{ fontSize: 20, fontWeight: 500, lineHeight: 1.1, marginTop: 8 }}>Begin a session</div>
-          <div style={{ fontSize: 11, color: 'var(--fg-2)', marginTop: 4, lineHeight: 1.4 }}>Nik suggests <b style={{ color: 'oklch(0.85 0.14 var(--hue))' }}>50 min · deep</b></div>
+          <div style={{ fontSize: 11, color: 'var(--fg-2)', marginTop: 4, lineHeight: 1.4 }}>Pick a length when you start</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 8, fontSize: 11, color: 'oklch(0.85 0.16 140)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
             <motion.div
               animate={reduce ? undefined : { opacity: [0.4, 1, 0.4] }}
@@ -399,37 +420,36 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
           </div>
         </motion.div>
 
-        {/* GPS smart card — full width */}
-        <motion.div
-          variants={itemV}
-          onClick={() => onNav('quests')}
-          whileHover={reduce ? undefined : { scale: 1.01 }}
-          whileTap={reduce ? undefined : { scale: 0.98 }}
-          className="glass tap"
-          style={{ padding: 14, gridColumn: 'span 2', position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue) / 0.18), oklch(0.65 0.22 calc(var(--hue) + 80) / 0.12))', borderColor: 'oklch(0.78 0.16 var(--hue) / 0.3)' }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{ position: 'relative' }}>
-                <motion.div
-                  animate={reduce ? undefined : { scale: [1, 1.12, 1], y: [0, -1, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-                >
-                  <I.location size={18} stroke="oklch(0.9 0.14 var(--hue))" />
-                </motion.div>
-                <motion.div
-                  animate={reduce ? undefined : { scale: [1, 1.6, 1], opacity: [1, 0, 1] }}
-                  transition={{ duration: 1.6, repeat: Infinity }}
-                  style={{ position: 'absolute', top: -2, right: -2, width: 6, height: 6, borderRadius: '50%', background: 'oklch(0.78 0.15 150)', boxShadow: '0 0 6px oklch(0.78 0.15 150)' }}
-                />
+        {/* Next event — pulled from the events ledger (calendar + integration MCPs).
+            Hidden entirely if there's nothing upcoming. */}
+        {upcomingEvents[0] && (
+          <motion.div
+            variants={itemV}
+            onClick={() => onNav('brief')}
+            whileHover={reduce ? undefined : { scale: 1.01 }}
+            whileTap={reduce ? undefined : { scale: 0.98 }}
+            className="glass tap"
+            style={{ padding: 14, gridColumn: 'span 2', position: 'relative', overflow: 'hidden', background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue) / 0.18), oklch(0.65 0.22 calc(var(--hue) + 80) / 0.12))', borderColor: 'oklch(0.78 0.16 var(--hue) / 0.3)' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <I.calendar size={16} stroke="oklch(0.9 0.14 var(--hue))" />
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'oklch(0.9 0.14 var(--hue))', letterSpacing: 1 }}>
+                  NEXT · {(upcomingEvents[0].kind || 'EVENT').replace(/_/g, ' ').toUpperCase()}
+                </span>
               </div>
-              <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'oklch(0.9 0.14 var(--hue))', letterSpacing: 1 }}>{V.emergent}</span>
+              {upcomingEvents[0].occurs_at && (
+                <Chip tone="accent" size="sm">{relTime(upcomingEvents[0].occurs_at).toUpperCase()}</Chip>
+              )}
             </div>
-            <Chip tone="accent" size="sm">NEW {V.quest.toUpperCase()}</Chip>
-          </div>
-          <div className="display" style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.3, marginBottom: 4 }}>You're near <span style={{ color: 'oklch(0.9 0.14 var(--hue))' }}>Nature's Basket</span></div>
-          <div style={{ fontSize: 12, color: 'var(--fg-2)' }}>Meera added <b style={{ color: 'var(--fg)' }}>Groceries</b> — pick them up? +80 XP</div>
-        </motion.div>
+            <div className="display" style={{ fontSize: 17, fontWeight: 500, lineHeight: 1.3, marginBottom: 4 }}>
+              {upcomingEvents[0].title}
+            </div>
+            {upcomingEvents[0].body && (
+              <div style={{ fontSize: 12, color: 'var(--fg-2)' }}>{upcomingEvents[0].body}</div>
+            )}
+          </motion.div>
+        )}
 
         {/* Next quest */}
         <motion.div
@@ -487,24 +507,25 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>FAMILY · CIRCLE</div>
-            <Chip tone="ok" size="sm">3 ONLINE</Chip>
+            <Chip tone="ok" size="sm">{circleMembers.filter((m) => m.status === 'online').length} ONLINE</Chip>
           </div>
           <div style={{ display: 'flex', marginBottom: 8 }}>
-            {FAMILY_PLACEHOLDERS.slice(0, 5).map((p, i) => (
+            {circleMembers.slice(0, 5).map((p, i) => (
               <motion.div
-                key={i}
+                key={p.id}
                 initial={reduce ? false : { opacity: 0, x: -8, scale: 0.7 }}
                 animate={reduce ? undefined : { opacity: 1, x: 0, scale: 1 }}
                 transition={{ delay: 0.15 + i * 0.06, type: 'spring', stiffness: 240, damping: 18 }}
                 style={{ marginLeft: i === 0 ? 0 : -10, zIndex: 5 - i }}
               >
-                <Avatar name={p.name} size={34} hue={p.hue} status={p.status} ring={p.self} />
+                <Avatar name={p.name} size={34} hue={p.hue} status={p.status} ring={p.is_self} />
               </motion.div>
             ))}
           </div>
           <div style={{ fontSize: 12, color: 'var(--fg-2)', lineHeight: 1.4 }}>
-            <b style={{ color: 'var(--fg)' }}>Kiaan</b> finished homework +40 XP ·{' '}
-            <b style={{ color: 'var(--fg)' }}>Meera</b> added groceries
+            {circleMembers.length > 0
+              ? circleMembers.slice(0, 3).map((m) => m.name).join(' · ')
+              : 'Add family to your circle to see them here.'}
           </div>
         </motion.div>
 
@@ -520,9 +541,10 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <I.book size={13} stroke="oklch(0.85 0.14 var(--hue))" />
-              <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>DIARY · TODAY</div>
+              <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>
+                DIARY · {diaryEntries[0] ? relTime(diaryEntries[0].occurred_at).toUpperCase() : 'NEW'}
+              </div>
             </div>
-            <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>184 ENTRIES</div>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <div style={{
@@ -531,14 +553,27 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
               position: 'relative', overflow: 'hidden',
             }}>
               <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 30% 30%, oklch(0.95 0.1 80 / 0.5), transparent 60%)' }} />
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>☀</div>
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>
+                {moodEmoji(diaryEntries[0]?.mood)}
+              </div>
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="display" style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Long morning, finally</div>
-              <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.4, marginTop: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>Slept past the alarm and didn't feel guilty. Aanya named her drawing Pomelo…</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
-                <span>BRIGHT</span><span>·</span><span>BANDRA</span>
+              <div className="display" style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {diaryEntries[0]?.title ?? 'Write your first entry'}
               </div>
+              <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.4, marginTop: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                {diaryEntries[0]?.body ?? 'Tap to capture a quick reflection.'}
+              </div>
+              {(diaryEntries[0]?.tags?.length ?? 0) > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
+                  {diaryEntries[0]!.tags.slice(0, 3).map((t, i) => (
+                    <React.Fragment key={t}>
+                      {i > 0 && <span>·</span>}
+                      <span>{t.toUpperCase()}</span>
+                    </React.Fragment>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -559,9 +594,9 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
                 transition={{ duration: 1.2, repeat: Infinity }}
                 style={{ width: 8, height: 8, borderRadius: '50%', background: 'oklch(0.7 0.24 25)', boxShadow: '0 0 8px oklch(0.7 0.24 25)' }}
               />
-              <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>LIVE · APPLE HEALTH</div>
+              <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>VITALS · DEMO · NO HEALTHKIT YET</div>
             </div>
-            <Chip tone="accent" size="sm">SYNCING</Chip>
+            <Chip tone="default" size="sm">PREVIEW</Chip>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             <LiveStat label="STEPS" value={<SmoothNumber value={liveSteps} format={(n) => n.toLocaleString()} reduce={reduce} />} target="8k" hue={40} />

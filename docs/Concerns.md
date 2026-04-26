@@ -16,6 +16,9 @@ This file is auto-loaded into context at session start via the wiki + linked fro
 
 ## Open
 
+### 2026-04-26 · Home dashboard still has hardcoded text / fake metrics
+Audit revealed several hardcoded items the live-data sweep missed: **(a)** hydration tile showing 10/8 (auto-bump exceeds target), **(b)** family pulse line "Kiaan finished homework · Meera added groceries", **(c)** diary preview "Long morning, finally", **(d)** GPS smart card "You're near Nature's Basket", **(e)** live vitals (steps/HR/kcal) are fake sine-wave animations on top of seeded numbers (no HealthKit), **(f)** Focus card "Nik suggests 50 min · deep" is a hardcoded string. **Why:** the user wants nothing on Home that isn't sourced from real DB ops. Each of these needs a contract or a "no data yet" empty state. Also: streak / score / pillar trends *appear* live but the values are seed-defaults — real values require activity-derived computation (handled by the score Edge Function, not built yet).
+
 ### 2026-04-26 · UI wiring drift — wrong navigation destinations
 Clicking the Hydrate tile on Home navigates to `/habits` (the generic Habits screen) instead of `/hydration` (the dedicated screen). Probably similar miswirings on Sleep / Train / Read / Walk / Meditate tiles. **Why:** as we add new screens, existing on-tap handlers don't know about them and route to a default. Generic problem, not a one-off — needs a navigation registry + dev-console drift panel.
 
