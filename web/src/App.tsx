@@ -46,7 +46,6 @@ import QuestsScreen from './screens/QuestsScreen';
 import WidgetsScreen from './screens/WidgetsScreen';
 import StatsScreen from './screens/StatsScreen';
 import ComingSoonScreen from './screens/ComingSoonScreen';
-import DevScreen from './screens/DevScreen';
 import ReadingScreen from './screens/ReadingScreen';
 import ShoppingScreen from './screens/ShoppingScreen';
 import BirthdaysScreen from './screens/BirthdaysScreen';
@@ -249,10 +248,6 @@ export default function App() {
       case 'career':        return <CareerScreen {...screenProps} />;
       case 'sideprojects':  return <SideprojectsScreen {...screenProps} />;
       case 'comingsoon': return <ComingSoonScreen {...screenProps} />;
-      case 'dev':
-        return import.meta.env.DEV
-          ? <DevScreen {...screenProps} />
-          : <HomeScreen {...screenProps} />;
       default: return <HomeScreen {...screenProps} />;
     }
   };

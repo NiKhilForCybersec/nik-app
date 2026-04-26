@@ -7,7 +7,7 @@ export type ScreenId =
   | 'score' | 'sleep' | 'money' | 'brief' | 'vault' | 'errands'
   | 'couple' | 'kids' | 'onboard' | 'settings'
   | 'quests' | 'voice' | 'widgets' | 'stats'
-  | 'comingsoon' | 'dev'
+  | 'comingsoon'
   | 'reading' | 'shopping' | 'birthdays' | 'hydration' | 'calendar' | 'cycle'
   | 'nutrition' | 'symptoms' | 'doctors'
   | 'learning' | 'gratitude' | 'goals' | 'reflection' | 'languages'

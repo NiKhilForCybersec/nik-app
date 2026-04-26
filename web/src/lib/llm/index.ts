@@ -5,4 +5,3 @@ export type {
 export { AnthropicProvider } from './anthropic';
 export { OpenAIProvider } from './openai';
 export { LLMRouter, llm } from './router';
-export type { LLMCallRecord } from './router';
