@@ -48,7 +48,7 @@ const CATEGORIES: Category[] = [
       { id: 'meds',         icon: 'pill',      label: 'Meds',           sub: 'Schedules · Rx · adherence',  hue: 25 },
       { id: 'sleep',        icon: 'moon',      label: 'Sleep',          sub: 'Stages · dreams · wind-down', hue: 280 },
       { id: 'fitness',      icon: 'dumbbell',  label: 'Fitness',        sub: 'Coach · library · plan',      hue: 30 },
-      { id: 'hydration',    icon: 'water',     label: 'Hydration',      sub: '6/8 glasses today',           hue: 200, tag: 'SOON' },
+      { id: 'hydration',    icon: 'water',     label: 'Hydration',      sub: 'ml today · goal · history',   hue: 200, tag: 'NEW' },
       { id: 'nutrition',    icon: 'utensils',  label: 'Nutrition',      sub: 'Macros · meals · deficit',    hue: 60,  tag: 'NEW' },
       { id: 'cycle',        icon: 'refresh',   label: 'Cycle',          sub: 'Phase · symptoms · pred.',    hue: 320, tag: 'SOON' },
       { id: 'symptoms',     icon: 'alert',     label: 'Symptoms',       sub: 'Log + AI pattern find',       hue: 25,  tag: 'NEW' },
@@ -156,7 +156,7 @@ const isImplemented = (id: string) =>
    'focus','score','sleep','money','brief','vault','errands','couple','kids','onboard',
    'settings','quests','widgets','stats','more',
    // Phase C — items-backed dashboards
-   'reading','shopping','birthdays',
+   'reading','shopping','birthdays','hydration',
    'nutrition','symptoms','doctors',
    'learning','gratitude','goals','reflection','languages',
    'friends','network','pets',
