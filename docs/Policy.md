@@ -39,34 +39,45 @@ The home canvas is the most-touched surface; the rules here are enforced both in
 - Position is a flat integer; widgets.move passes the new index, neighbours shift.
 
 ### Sizes
-- Every widget has `w ∈ {1, 2}` and `h ∈ {1, 2}`. Four valid shapes:
-  - **1×1** — small square. Single hero metric (Streak, Today's events count, Score).
-  - **2×1** — wide. Story / list preview (Active quest, Diary, Next event, Family pulse, Vitals).
-  - **1×2** — tall. Long single column (e.g. a tall list of habits).
-  - **2×2** — hero. Featured tile spanning a 2-row block.
-- `WIDGET_TYPES[type].allowedSizes = ALL_SIZES` for every type by default. The field is reserved for the rare future widget that genuinely cannot render at a given shape.
+- Every widget has `w ∈ {1, 2}` and `h ∈ {1, 2, 3}`. Six valid shapes:
+  - **1×1** — small square. Single hero metric (Streak, Today's events count, Hydration mini).
+  - **2×1** — wide. Story / list preview (Active quest, Diary, Next event headline).
+  - **1×2** — tall. Vertical metric stack (e.g. Hydration cups stacked vertically).
+  - **2×2** — hero. Featured tile spanning a 2-row block (Score with full pillar list, Family with member cards).
+  - **1×3** — extra-tall narrow column. Score full pillar list, recent intake timeline.
+  - **2×3** — full hero. Maximum density: agenda, full-width habit list, hero score with delta + trend.
+- `WIDGET_TYPES[type].allowedSizes = ALL_SIZES` for every type by default — the user can put any widget at any size.
+- `recommendedSizes` is the metadata the AI consults when choosing sizes for an install; the resize dock shows all 6 cells fully tappable (no greying — 3-wide and 3×3 were dropped from the system, mobile-friendly bounds).
 - `defaultSize` is the suggested initial shape when a widget is installed via tap; AI can override.
+- Tier helper `getTier(size)` → 'mini' | 'wide' | 'tall' | 'hero' is the standard branch for widget render code so content scales consistently.
 
-### Per-row layout (auto-flowed by CSS grid)
+### Per-row layout (auto-flowed by CSS grid + dense packing)
 - Two 1×1 → share one row.
 - One 2×1 → full row.
 - 2×2 → spans two rows in a 2-column block.
-- 1×2 → stacks in a column; pairs with another 1×2 in the adjacent column or with two 1×1.
+- 1×2 / 1×3 → stacks in a column; pairs with another tall in the adjacent column or with multiple 1×1.
+- 2×3 → spans 3 rows × 2 cols.
+- `gridAutoFlow: row dense` — when a 1×1 hole opens earlier in the canvas, the next 1×1 backfills.
 
 ### Interactions (playground)
-- **Tap a widget** → selects it; coloured outline + the four size buttons (1×1 / 2×1 / 1×2 / 2×2) appear inline + edge-drag handles on the right + bottom edges.
-- **Tap a size button** → instant resize.
-- **Drag the right/bottom edge** → drag past half the tile's width/height to flip the dimension. Releases commit the new size.
-- **Tap-hold + drag** (200ms activation) → reorder the widget anywhere on the canvas. CSS grid auto-packs.
+- **Tap a widget** → selects it. Outline appears in the widget's hue + drag handle (top-left, gradient grip-dots) + ✕ remove (top-right) + edge-drag handles (right + bottom edges).
+- **Bottom-floating resize dock** appears whenever a tile is selected — 2×3 mini-grid showing all 6 sizes; tap any cell to resize. Tap ✓ to deselect.
+- **Drag the right/bottom edge** → drag past one cell-unit threshold to flip the dimension. rAF-throttled. Optimistic local state so the tile reflows instantly.
+- **Drag the handle** → reorder the widget anywhere on the canvas. Tile body itself is not a drag target (so tap-hold doesn't text-select).
 - **Tap or drag a library item** → install at end (tap) or at a specific slot (drag).
-- **✕ button** → remove (with confirm).
 - **Tap empty grid area** → deselect.
+
+### Tap-to-navigate (Home view)
+Every widget on Home opens its dedicated screen on tap, resolved via `widgetNavTarget(widget)` in `web/src/components/widgets/WidgetCanvas.tsx`:
+- Base widgets read their navTarget directly from `WIDGET_TYPES[type]`.
+- `list_preview` widgets look up `config.kind` in `KIND_TO_SCREEN` (30 entries: reading→reading, bill→bills, plant→plants, etc.).
 
 ### AI sizing guidance
 Saved in the WidgetsScreen + ChatScreen system prompts so the LLM picks sensible shapes:
-- "Make it bigger" / "feature X" → 2×2.
+- "Make it bigger" / "feature X" → 2×2 or 2×3.
 - Standalone simple counters → 1×1 default.
-- Lists and stories → 2×1 default; grow to 2×2 when the user wants more preview.
+- Lists and stories → 2×1 default; grow to 2×2 / 2×3 when the user wants more preview.
+- Vertical info dense tile (intake history, pillar breakdown) → 1×3 or 2×3.
 - Always default to `defaultSize` when no size is specified.
 
 ---

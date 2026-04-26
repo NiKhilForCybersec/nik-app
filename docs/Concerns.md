@@ -138,3 +138,42 @@ profile + quests contracts built; chat persistence shipped; circle migration; da
 
 ### 2026-04-26 · AI tries to set derived fields (level=50)
 Mutability layer added; AI catalog hides derived writes; system prompt explicitly refuses with redirect to logging activity. Fix: [3089686](https://github.com/NiKhilForCybersec/nik-app/commit/3089686).
+
+### 2026-04-26 · Widget grid expansion → mobile-first 2 cols × up to 3 rows
+Originally requested 1/2/3 in both dimensions (9 shapes on a 3-col grid). Tested at 3 cols on mobile-sized viewport — too cramped, content unreadable. Reverted to 2 cols × 1-3 rows (6 shapes: 1×1, 2×1, 1×2, 2×2, 1×3, 2×3). Drag-resize now rAF-throttled + uses optimistic local state so the tile reflows instantly without server round-trip. Edge handles bumped to 16px touch targets. The user's "all combinations of 1, 2, 3" intent is preserved within the 2-col mobile constraint. Fix: [902ae9f](https://github.com/NiKhilForCybersec/nik-app/commit/902ae9f), [952aff6](https://github.com/NiKhilForCybersec/nik-app/commit/952aff6), [6baf8ed](https://github.com/NiKhilForCybersec/nik-app/commit/6baf8ed).
+
+### 2026-04-26 · Widget library expanded — 33+ presets one tap from Home
+14 base widget types + 30 ItemKind presets (Reading, Bills, Plants, Birthdays, etc.) → every screen the user spends time on is one tap away from Home via a library card. Library is a 3-row horizontal-scroll carousel with premium icon-disc cards. Fix: [e2acf2a](https://github.com/NiKhilForCybersec/nik-app/commit/e2acf2a), [d67cfb5](https://github.com/NiKhilForCybersec/nik-app/commit/d67cfb5).
+
+### 2026-04-26 · All hardcoded demo data stripped from on-signup seed
+Demo family members (Partner, Kids, Parent), demo quests, demo diary, demo events, demo sleep nights, family ops alarms, score events all removed from seedOnce(). Honest empty start: only profile (level 1, xp 0), habit definitions with done=0, self circle row, and zero score snapshot. Backfilled the existing dev account too. Auto-derive of email→name removed (no more "Arjun" from arjun@local.dev). Fix: [bbf4c54](https://github.com/NiKhilForCybersec/nik-app/commit/bbf4c54).
+
+### 2026-04-26 · Widget playground richer interactions + premium graphics
+Tap any tile to select → coloured outline + drag handle (top-left, gradient grip-dots) + ✕ remove (top-right) + bottom-floating resize dock (2×3 mini-grid, all 6 sizes always tappable, no greying). Edge-drag handles on right + bottom edges with rAF throttling. Library cards have icon discs, ambient halos, hue gradients, "+ ADD" / "DRAG TO PLACE" footer. Every widget component scales content with size tier (mini / wide / tall / hero) so a 2×3 Hydration shows cup stack + intake timeline; a 2×2 Score shows full per-pillar list + delta; etc. Fix: [266f930](https://github.com/NiKhilForCybersec/nik-app/commit/266f930), [efdbbfd](https://github.com/NiKhilForCybersec/nik-app/commit/efdbbfd), [95a0790](https://github.com/NiKhilForCybersec/nik-app/commit/95a0790).
+
+### 2026-04-26 · Today's Rituals → habits_today widget; Home is now 100% widget-driven
+Static "Today's Rituals" + Streak/Score/Focus/Family/Diary/Vitals/Active Quest blocks all deleted from HomeScreen. Replaced by a single `<ReadOnlyCanvas widgets onOpen>` rendering the user's customisable home_widgets rows. New widget types added to cover the deleted static blocks: habits_today, focus_starter, vitals_strip. Same render engine as the WidgetsScreen playground. Fix: [266f930](https://github.com/NiKhilForCybersec/nik-app/commit/266f930), [60f2538](https://github.com/NiKhilForCybersec/nik-app/commit/60f2538).
+
+### 2026-04-26 · Home + Widgets playground render 1:1 (shared `<WidgetCanvas>`)
+Earlier mismatch: playground tiles had visibly larger gaps + selection outline extended past the visible widget. Root cause was the SortableWidget wrapper sized by gridAutoRows but the inner WidgetShell was content-sized → empty space inside the wrapper, outline drew on the wrapper bounds. Extracted shared `<WidgetCanvas>` module (`ReadOnlyCanvas` + `EditCanvasInner` + `widgetNavTarget`) so both screens use identical grid styles + identical widget rendering. WidgetShell now stretches to 100% so wrapper outline hugs the tile precisely. Fix: [60f2538](https://github.com/NiKhilForCybersec/nik-app/commit/60f2538), [9dc18cb](https://github.com/NiKhilForCybersec/nik-app/commit/9dc18cb).
+
+### 2026-04-26 · Widget tap navigation — every widget routes to its real screen
+Bug: 30 ItemKind library presets all installed as `list_preview` widget which had no navTarget → tap did nothing on Home. Fixed via `widgetNavTarget(widget)` helper that reads `config.kind` for list_preview presets and looks up KIND_TO_SCREEN (30 entries: reading→reading, bill→bills, plant→plants, etc.). streak_counter also got navTarget='profile'. Verified: every widget on Home navigates to its dedicated screen on tap. Fix: [9dc18cb](https://github.com/NiKhilForCybersec/nik-app/commit/9dc18cb).
+
+### 2026-04-26 · Score Edge Function (live recompute from activity)
+Migration 20260426000009 added recompute_user_score(uid) + bridge triggers on hydration_intakes / sleep_nights / diary_entries / quests so logging activity automatically inserts a score_event and the snapshot updates synchronously. Result: Home Nik Score widget now shows live values driven by real activity, with per-pillar bars + 7-day delta. Fix: [8ea7bc8](https://github.com/NiKhilForCybersec/nik-app/commit/8ea7bc8).
+
+### 2026-04-26 · Family multi-tenant invite (token + 6-digit code + reciprocal accept)
+circle_invites table + RLS + SECURITY DEFINER accept RPC + four contract ops (createInvite/listInvites/revokeInvite/acceptInvite) + InviteSheet UI on CircleScreen with Create/Accept tabs, gradient code display, copy-code/copy-link, pending invites strip with revoke. Two real users can now join each other's circles. NFC tap deferred to Capacitor mobile build. Fix: [b90faf6](https://github.com/NiKhilForCybersec/nik-app/commit/b90faf6).
+
+### 2026-04-26 · Family circle add/remove member UI
+CircleScreen has a `+` button that opens AddMemberSheet (manual add with name, relation, share-tier, hue picker), and `circle.remove` is wired with a confirm dialog. (Cross-account search via the invite flow above.) Fix: [f2854f4](https://github.com/NiKhilForCybersec/nik-app/commit/f2854f4).
+
+### 2026-04-26 · Streak / score / pillars now live (no more seeded values)
+Profile defaults stripped to honest 0 (level=1, xp=0, streak=0, stats={10,…}). Score derives live from activity via the recompute trigger above. Hydration habit's `done` derives from sum(hydration_intakes today)/250; sleep habit's `done` derives from sleep_nights.duration_min/60. Other habits (Read, Train, Meditate, Stretch, Walk) await manual log or HealthKit. Fix: [bbf4c54](https://github.com/NiKhilForCybersec/nik-app/commit/bbf4c54), [8ea7bc8](https://github.com/NiKhilForCybersec/nik-app/commit/8ea7bc8).
+
+### 2026-04-26 · Home Hydrate ↔ Hydration screen mismatch resolved
+Hydration widget on Home reads from `hydration.today` (single source of truth, ml-based). Home no longer renders a separate habit Hydrate tile (replaced by hydration_today widget). Both surfaces now agree. Fix: [266f930](https://github.com/NiKhilForCybersec/nik-app/commit/266f930).
+
+### 2026-04-26 · UI wiring drift — Home tap navigation
+Generic habit tap-to-screen routing replaced by widget-level navTarget (each WIDGET_TYPES entry declares its own destination; list_preview reads from config.kind). The "tap Hydrate → /habits" misfire is gone — Hydrate widget routes to /hydration explicitly. Fix: [9dc18cb](https://github.com/NiKhilForCybersec/nik-app/commit/9dc18cb).
