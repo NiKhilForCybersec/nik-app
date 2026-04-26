@@ -16,6 +16,18 @@ This file is auto-loaded into context at session start via the wiki + linked fro
 
 ## Open
 
+### 2026-04-26 · Graph nodes confusingly named — APP vs NIK vs AI · CHAT
+"NIK" reads as the AI assistant (which it is in-product) but in the graph it's the master app node. "AI · CHAT" is the actual AI surface. Rename: app master → "APP", AI super-node → "NIK" (the character). **Why:** the user's mental model puts Nik=AI, not Nik=app shell.
+
+### 2026-04-26 · Graph all grey, nothing colored
+Health colors only render when ops have been called this session (in-memory ring buffer). Fresh reload → everything dashed-gray "untested." Untested isn't a failure state — should default to neutral kind-color, only grey out when KNOWN-broken. **Why:** the panel looks broken on first load.
+
+### 2026-04-26 · Dev console needs a standalone window
+Right now /dev is inside the app — every time you open it you lose the screen you were on. Should be a separate URL/window so you can have the app + dev console side-by-side without navigating away. Same Vite dev server, dedicated entry. **Why:** can't watch the app behave while inspecting it.
+
+### 2026-04-26 · More hardcoded literals across other screens
+Hardcoded panel finds 21 suspicious literals in 6 screens (Sleep · 8, Onboard · 7, Fitness · 2, Focus · 2, Profile · 1, Stats · 1) — and likely more once those are reviewed and the false-positive list refines. Sweep all to 0. **Why:** "i need it to be very perfect from the starting stages."
+
 ### 2026-04-26 · Home dashboard still has hardcoded text / fake metrics
 Audit revealed several hardcoded items the live-data sweep missed: **(a)** hydration tile showing 10/8 (auto-bump exceeds target), **(b)** family pulse line "Kiaan finished homework · Meera added groceries", **(c)** diary preview "Long morning, finally", **(d)** GPS smart card "You're near Nature's Basket", **(e)** live vitals (steps/HR/kcal) are fake sine-wave animations on top of seeded numbers (no HealthKit), **(f)** Focus card "Nik suggests 50 min · deep" is a hardcoded string. **Why:** the user wants nothing on Home that isn't sourced from real DB ops. Each of these needs a contract or a "no data yet" empty state. Also: streak / score / pillar trends *appear* live but the values are seed-defaults — real values require activity-derived computation (handled by the score Edge Function, not built yet).
 

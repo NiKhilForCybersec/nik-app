@@ -43,13 +43,33 @@ export default function DevScreen(_p: ScreenProps) {
 
   return (
     <div style={{ padding: '8px 16px 100px', color: 'var(--fg)' }}>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, fontFamily: 'var(--font-mono)' }}>
-          DEV CONSOLE · LOCAL ONLY · NEVER SHIPS
+      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, fontFamily: 'var(--font-mono)' }}>
+            DEV CONSOLE · LOCAL ONLY · NEVER SHIPS
+          </div>
+          <div className="display" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1, marginTop: 4 }}>
+            What's actually happening
+          </div>
         </div>
-        <div className="display" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1, marginTop: 4 }}>
-          What's actually happening
-        </div>
+        {/* Hidden when already in standalone mode (no app shell to compete with). */}
+        {window.location.pathname !== '/dev.html' && (
+          <a
+            href="/dev.html"
+            target="_blank"
+            rel="noreferrer"
+            className="tap"
+            style={{
+              padding: '6px 10px', borderRadius: 8, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
+              background: 'oklch(0.78 0.16 var(--hue) / 0.18)', border: '1px solid oklch(0.78 0.16 var(--hue) / 0.4)',
+              color: 'oklch(0.9 0.14 var(--hue))', textDecoration: 'none', whiteSpace: 'nowrap',
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+            }}
+            title="Open this dev console in a separate tab so it doesn't disrupt the app"
+          >
+            <I.location size={11} stroke="oklch(0.9 0.14 var(--hue))" /> NEW WINDOW
+          </a>
+        )}
       </div>
 
       {/* Tab bar */}
@@ -793,7 +813,7 @@ const NODE_COLORS = {
 const STATUS_COLORS = {
   ok:    'oklch(0.78 0.18 150)',   // green — recent successful call
   err:   'oklch(0.78 0.20 25)',    // red — recent failure
-  never: 'oklch(0.45 0.02 260)',   // gray — never called
+  never: 'transparent',            // untested ≠ broken — show kind color
 } as const;
 
 type GraphNodeKind = keyof typeof NODE_COLORS;
@@ -926,8 +946,14 @@ function GraphPanel() {
 
       type Node = { id: string; label: string; kind: GraphNodeKind; health: NodeHealth };
       const nodes: Node[] = [];
-      if (filter.app) nodes.push({ id: 'app:nik', label: 'NIK', kind: 'app', health: 'ok' });
-      if (filter.ai)  nodes.push({ id: 'ai:chat', label: 'AI · CHAT', kind: 'ai',  health: 'ok' });
+      // Master nodes:
+      //   APP = the React app shell + every screen it contains
+      //   NIK = the AI agent that can call every registered tool
+      // Distinct because the app contains screens (the human surface);
+      // Nik calls tools (the agent surface). Both anchor different
+      // halves of the graph.
+      if (filter.app) nodes.push({ id: 'app:nik', label: 'APP', kind: 'app', health: 'ok' });
+      if (filter.ai)  nodes.push({ id: 'ai:chat', label: 'NIK', kind: 'ai',  health: 'ok' });
       if (filter.op) {
         for (const o of ops) nodes.push({ id: `op:${o.name}`, label: o.name, kind: 'op', health: nodeHealth(o.name, calls) });
       }
@@ -986,11 +1012,11 @@ function GraphPanel() {
             selector: `node.${kind}`,
             style: { 'background-color': c.bg, 'border-color': c.border },
           })) as never[]),
-          // Health overrides for op/cmd nodes — overrides the kind colour
-          // so failures + un-tested tools are obvious at a glance.
-          { selector: 'node.h-ok',    style: { 'border-color': STATUS_COLORS.ok,  'border-width': 2.5 } },
-          { selector: 'node.h-err',   style: { 'background-color': STATUS_COLORS.err, 'border-color': STATUS_COLORS.err, 'border-width': 2.5 } },
-          { selector: 'node.h-never', style: { 'background-opacity': 0.35, 'border-style': 'dashed', 'border-color': STATUS_COLORS.never } },
+          // Health overrides for op/cmd nodes. Untested = no override
+          // (keeps the kind colour); recent OK = green border halo;
+          // recent ERR = red fill + border so failures pop.
+          { selector: 'node.h-ok',  style: { 'border-color': STATUS_COLORS.ok,  'border-width': 3 } },
+          { selector: 'node.h-err', style: { 'background-color': STATUS_COLORS.err, 'border-color': STATUS_COLORS.err, 'border-width': 3 } },
           {
             selector: 'edge',
             style: {
@@ -1064,9 +1090,8 @@ function GraphPanel() {
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLORS.err, boxShadow: `0 0 4px ${STATUS_COLORS.err}` }} />
           ERR · {errCount}
         </span>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'transparent', border: `1.5px dashed ${STATUS_COLORS.never}` }} />
-          UNTESTED · {neverCount}
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, opacity: 0.7 }}>
+          (untested = kind color · {neverCount})
         </span>
       </div>
       <div className="glass" style={{ position: 'relative', borderRadius: 12, height: '70vh', overflow: 'hidden' }}>

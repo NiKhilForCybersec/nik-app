@@ -15,9 +15,16 @@ const cards = [
 export default function StatsScreen(_p: ScreenProps) {
   return (
     <div style={{ padding: '8px 16px 80px' }}>
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>INSIGHTS · LAST 7 DAYS</div>
-        <div className="display" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1, marginTop: 4 }}>Growth</div>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>INSIGHTS · LAST 7 DAYS</div>
+          <div className="display" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1, marginTop: 4 }}>Growth</div>
+        </div>
+        <Chip tone="default" size="sm">PREVIEW</Chip>
+      </div>
+      <div className="glass" style={{ padding: 10, marginBottom: 14, borderRadius: 8, fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.5 }}>
+        Sample numbers — real insights derive from your activity once
+        the analytics rollup lands. Pattern engine is also a preview.
       </div>
 
       <div className="glass fade-up" style={{ padding: 16, marginBottom: 12 }}>

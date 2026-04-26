@@ -8,6 +8,12 @@ export default defineConfig({
   build: {
     outDir: path.resolve(__dirname, '../dist'),
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        dev:  path.resolve(__dirname, 'dev.html'),
+      },
+    },
   },
   server: {
     host: true,
