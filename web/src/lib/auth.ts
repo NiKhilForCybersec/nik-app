@@ -104,13 +104,20 @@ async function seedSampleHabitsIfEmpty(userId: string) {
     .eq('user_id', userId);
   if ((count ?? 0) > 0) return;
 
+  // Seed STRUCTURE only (habit definitions). Every `done` starts at 0,
+  // every `streak` at 0 — values must come from real activity:
+  //  • Hydrate     ← derived from hydration_intakes by hydration.log
+  //  • Sleep 7h+   ← derived from sleep_nights by the Sleep screen
+  //  • Walk 8k     ← will derive from HealthKit when integration ships
+  //  • Read/Train/Meditate ← bumped by user (or future focus/fitness logs)
+  // Seeding fake "done" values made the dashboard lie about activity.
   const seed = [
-    { name: 'Hydrate',       target: 8,    done: 6,    unit: 'glasses', icon: 'water',    hue: 200, streak: 12, source: 'manual',       auto: false },
-    { name: 'Read',          target: 30,   done: 22,   unit: 'min',     icon: 'book',     hue: 280, streak: 8,  source: 'kindle',       auto: false },
-    { name: 'Train',         target: 60,   done: 60,   unit: 'min',     icon: 'dumbbell', hue: 30,  streak: 42, source: 'cult-fit',     auto: true  },
-    { name: 'Meditate',      target: 10,   done: 0,    unit: 'min',     icon: 'brain',    hue: 150, streak: 0,  source: 'manual',       auto: false },
-    { name: 'Walk 8k steps', target: 8000, done: 5240, unit: 'steps',   icon: 'flame',    hue: 40,  streak: 19, source: 'apple-health', auto: true  },
-    { name: 'Sleep 7h+',     target: 7,    done: 7,    unit: 'hrs',     icon: 'moon',     hue: 260, streak: 5,  source: 'apple-health', auto: true  },
+    { name: 'Hydrate',       target: 8,    done: 0, unit: 'glasses', icon: 'water',    hue: 200, streak: 0, source: 'manual',       auto: false },
+    { name: 'Read',          target: 30,   done: 0, unit: 'min',     icon: 'book',     hue: 280, streak: 0, source: 'manual',       auto: false },
+    { name: 'Train',         target: 60,   done: 0, unit: 'min',     icon: 'dumbbell', hue: 30,  streak: 0, source: 'manual',       auto: false },
+    { name: 'Meditate',      target: 10,   done: 0, unit: 'min',     icon: 'brain',    hue: 150, streak: 0, source: 'manual',       auto: false },
+    { name: 'Walk 8k steps', target: 8000, done: 0, unit: 'steps',   icon: 'flame',    hue: 40,  streak: 0, source: 'apple-health', auto: true  },
+    { name: 'Sleep 7h+',     target: 7,    done: 0, unit: 'hrs',     icon: 'moon',     hue: 260, streak: 0, source: 'apple-health', auto: true  },
   ];
   const { error } = await supabase.from('habits').insert(seed.map(h => ({ ...h, user_id: userId })));
   if (error) console.warn('[seed] habits insert failed', error);

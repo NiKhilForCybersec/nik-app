@@ -100,6 +100,24 @@ export const sleep = {
         .select()
         .single();
       if (error) throw error;
+
+      // Derive the matching Sleep habit's done count from last night's
+      // duration (in whole hours). Same single-source-of-truth pattern
+      // as Hydrate ← hydration_intakes. Best-effort + non-fatal.
+      if (userId && input.durationMin) {
+        const { data: habit } = await sb
+          .from('habits')
+          .select('id, target')
+          .eq('user_id', userId)
+          .ilike('name', '%sleep%')
+          .limit(1)
+          .maybeSingle();
+        if (habit?.id) {
+          const hours = Math.min(habit.target, Math.round(input.durationMin / 60));
+          await sb.from('habits').update({ done: hours, last_done_at: new Date().toISOString() }).eq('id', habit.id);
+        }
+      }
+
       return data as SleepNight;
     },
   }),

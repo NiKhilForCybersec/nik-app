@@ -16,6 +16,12 @@ This file is auto-loaded into context at session start via the wiki + linked fro
 
 ## Open
 
+### 2026-04-26 · Other habit tiles (Read, Sleep, Walk, Train, Meditate, Stretch) showing seeded values, not real activity
+Same class of bug as the Hydrate one. Habits' `done` values were seeded at signup (Read 22/30, Sleep 7/7, Walk 5240/8000, Train 60/60, Meditate 0/10) so they LOOK live but are static demo numbers. **Fix:** start every habit at done=0 in seed (honest empty state). Where we have a real source (Sleep ← sleep_nights last night), derive on read like Hydrate does.
+
+### 2026-04-26 · Settings → Widgets: not working, doesn't render dashboard values
+WidgetsScreen exists but is template content. User expects: pick widgets in Settings, they live-resize and render the actual dashboard data. Tied to the project_widget_system_plan.md memory. **Fix is the widget system v1 build (from that plan) — not a small fix, real session of work.**
+
 ### 2026-04-26 · Source-of-truth mismatch: Home Hydrate (8/8) ≠ Hydration screen (4/8)
 Home shows habit.done=8 (capped after auto-bumps), Hydration screen shows 4/8 (count of actual hydration_intakes rows today). Two screens, different denominators, both claiming to be the same metric. **Fix:** make the Hydrate widget on Home derive from hydration.today (single source of truth) so the ring drains correctly when intakes are removed/added.
 
