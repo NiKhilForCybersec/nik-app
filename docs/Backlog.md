@@ -41,6 +41,27 @@ Currently auto-signs-in as a seeded dev user. Real flow:
 - Magic link fallback
 - Wire `OnboardScreen` to actual permission requests + identity creation
 
+### Family add-to-circle: tap-to-share (NFC + QR + code)
+
+When two phones are near each other, sender taps "Invite to family" → tap their phones together (NFC) → other phone shows "Add Arjun's family?" → accept → joins the circle. Three fallback layers so it always works:
+
+| Layer | Plugin | Works on |
+|---|---|---|
+| 1. NFC tap | `@capacitor-community/nfc` | iOS 13+ (read), Android HCE |
+| 2. QR scan | `@capacitor-mlkit/barcode-scanning` | every device with a camera |
+| 3. 6-digit code | none, just text input | every device, even cracked screens |
+
+Server side (Supabase):
+- `circle_invites(token, owner_user_id, expires_at, max_uses, uses)` table
+- `circle.createInvite()` → returns `{ token, qrPayload, code }`
+- `circle.acceptInvite({ token })` → adds inviter as a circle member, marks token used
+- TTL = 5 min, single-use, rate-limited per owner
+
+UI:
+- New "Invite a family member" CTA on Circle screen + Settings
+- Sheet with all three options visible (NFC pulse animation, QR code, big 6-digit code)
+- Receiver-side: `nik://invite?t=...` deep link OR scan-from-camera flow
+
 ### Add Android target
 ```bash
 npm install @capacitor/android
