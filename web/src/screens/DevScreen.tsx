@@ -116,12 +116,45 @@ function RegistryPanel() {
     ? all.filter((x) => x.name.toLowerCase().includes(filter.toLowerCase()))
     : all;
 
+  const exportCatalog = () => {
+    const catalog = {
+      generatedAt: new Date().toISOString(),
+      operations: ops.map((o) => ({
+        name: o.name,
+        description: o.description,
+        kind: o.kind,
+        permissions: o.permissions,
+        tags: o.tags,
+        inputSchema: zodToJsonSchema(o.input as never),
+      })),
+      commands: cmds.map((c) => ({
+        name: c.name,
+        description: c.description,
+        permissions: c.permissions,
+        tags: c.tags,
+        inputSchema: zodToJsonSchema(c.input as never),
+      })),
+    };
+    const blob = new Blob([JSON.stringify(catalog, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `nik-catalog-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       <div className="glass" style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, borderRadius: 12 }}>
         <I.search size={14} stroke="var(--fg-3)" />
         <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={`${all.length} registered…`}
           style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', color: 'var(--fg)', fontSize: 13 }} />
+        <div onClick={exportCatalog} className="tap" title="Download catalog as JSON for external consumers (Telegram bot, plugins, etc.)" style={{
+          padding: '5px 10px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
+          background: 'oklch(0.78 0.16 var(--hue) / 0.15)', border: '1px solid oklch(0.78 0.16 var(--hue) / 0.4)',
+          color: 'oklch(0.9 0.14 var(--hue))', whiteSpace: 'nowrap',
+        }}>EXPORT JSON</div>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -547,21 +580,181 @@ function previewRow(r: Record<string, unknown>): string {
   return Object.keys(r).slice(0, 4).join(', ');
 }
 
-// ── Graph (placeholder, heavy work for v2) ─────────────────
+// ── Graph (Cytoscape force-directed, free-play canvas) ────
+
+const NODE_COLORS = {
+  op:      { bg: 'oklch(0.78 0.16 220)', border: 'oklch(0.65 0.20 220)', label: 'OPS' },
+  cmd:     { bg: 'oklch(0.78 0.16 280)', border: 'oklch(0.65 0.20 280)', label: 'COMMANDS' },
+  screen:  { bg: 'oklch(0.78 0.16 60)',  border: 'oklch(0.65 0.20 60)',  label: 'SCREENS' },
+  table:   { bg: 'oklch(0.78 0.16 150)', border: 'oklch(0.65 0.20 150)', label: 'TABLES' },
+} as const;
+
+type GraphNodeKind = keyof typeof NODE_COLORS;
 
 function GraphPanel() {
-  const opCount = getOpRegistry().size;
-  const cmdCount = getCmdRegistry().size;
-  const screenCount = Object.keys(screenSources).length;
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [filter, setFilter] = React.useState<Record<GraphNodeKind, boolean>>({
+    op: true, cmd: true, screen: true, table: true,
+  });
+
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+    let cy: { destroy: () => void } | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      const cytoscape = (await import('cytoscape')).default;
+      const fcose = (await import('cytoscape-fcose')).default;
+      cytoscape.use(fcose as never);
+      if (cancelled || !containerRef.current) return;
+
+      const ops = Array.from(getOpRegistry().values());
+      const cmds = Array.from(getCmdRegistry().values());
+      const screens = Object.keys(screenSources).map((p) => p.split('/').pop()!.replace(/\.tsx$/, ''));
+
+      // Tables come from the static list used by DbPanel.
+      const tables = TABLES;
+
+      // Build edges:
+      //  - screen → op via manifest reads / writes
+      //  - screen → cmd via manifest commands
+      //  - op   → table via heuristic regex on the op handler source
+      const edges: { source: string; target: string; kind: string }[] = [];
+
+      for (const [path, src] of Object.entries(manifestSources)) {
+        const screen = path.split('/').pop()!.replace(/\.manifest\.ts$/, '');
+        const reads = extractFromManifest(src, 'reads');
+        const writes = extractFromManifest(src, 'writes');
+        const cmds_ = extractFromManifest(src, 'commands');
+        for (const r of reads) {
+          const tail = r.split('.').slice(-1)[0];
+          const op = ops.find((o) => o.name.endsWith('.' + tail));
+          if (op) edges.push({ source: `screen:${screen}`, target: `op:${op.name}`, kind: 'reads' });
+        }
+        for (const w of writes) {
+          const tail = w.split('.').slice(-1)[0];
+          const op = ops.find((o) => o.name.endsWith('.' + tail));
+          if (op) edges.push({ source: `screen:${screen}`, target: `op:${op.name}`, kind: 'writes' });
+        }
+        for (const c of cmds_) {
+          const tail = c.split('.').slice(-1)[0];
+          const cmd = cmds.find((cc) => cc.name.endsWith('.' + tail));
+          if (cmd) edges.push({ source: `screen:${screen}`, target: `cmd:${cmd.name}`, kind: 'commands' });
+        }
+      }
+
+      // Best-effort op → table edge: scan handler source via Function.toString().
+      // This is dev-only inspection; misses programmatic table names but
+      // catches the common .from('habits') pattern.
+      for (const op of ops) {
+        const src = (op.handler as { toString: () => string }).toString();
+        for (const table of tables) {
+          const re = new RegExp(`\\bfrom\\(['"\`]${table}['"\`]\\)`);
+          if (re.test(src)) edges.push({ source: `op:${op.name}`, target: `table:${table}`, kind: 'queries' });
+        }
+      }
+
+      const nodes: { id: string; label: string; kind: GraphNodeKind }[] = [
+        ...(filter.op ? ops.map((o) => ({ id: `op:${o.name}`, label: o.name, kind: 'op' as const })) : []),
+        ...(filter.cmd ? cmds.map((c) => ({ id: `cmd:${c.name}`, label: c.name, kind: 'cmd' as const })) : []),
+        ...(filter.screen ? screens.map((s) => ({ id: `screen:${s}`, label: s, kind: 'screen' as const })) : []),
+        ...(filter.table ? tables.map((t) => ({ id: `table:${t}`, label: t, kind: 'table' as const })) : []),
+      ];
+
+      const nodeIds = new Set(nodes.map((n) => n.id));
+      const visibleEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+
+      const inst = cytoscape({
+        container: containerRef.current,
+        elements: [
+          ...nodes.map((n) => ({
+            data: { id: n.id, label: n.label, kind: n.kind },
+            classes: n.kind,
+          })),
+          ...visibleEdges.map((e, i) => ({
+            data: { id: `e${i}`, source: e.source, target: e.target, kind: e.kind },
+          })),
+        ],
+        style: [
+          {
+            selector: 'node',
+            style: {
+              label: 'data(label)',
+              color: '#fff',
+              'font-family': 'JetBrains Mono, monospace',
+              'font-size': '8px',
+              'text-valign': 'bottom',
+              'text-margin-y': 6,
+              'text-outline-width': 2,
+              'text-outline-color': 'oklch(0.10 0.02 260)',
+              width: 14,
+              height: 14,
+              'border-width': 1.5,
+            },
+          },
+          ...(Object.entries(NODE_COLORS).map(([kind, c]) => ({
+            selector: `node.${kind}`,
+            style: { 'background-color': c.bg, 'border-color': c.border },
+          })) as never[]),
+          {
+            selector: 'edge',
+            style: {
+              width: 1,
+              'line-color': 'oklch(1 0 0 / 0.18)',
+              'target-arrow-color': 'oklch(1 0 0 / 0.3)',
+              'target-arrow-shape': 'triangle',
+              'arrow-scale': 0.6,
+              'curve-style': 'bezier',
+            },
+          },
+        ],
+        layout: {
+          name: 'fcose',
+          quality: 'proof',
+          animate: true,
+          animationDuration: 600,
+          nodeRepulsion: 4500,
+          idealEdgeLength: 80,
+          edgeElasticity: 0.45,
+          gravity: 0.25,
+          padding: 30,
+        } as never,
+        wheelSensitivity: 0.2,
+      });
+      cy = inst;
+    })();
+
+    return () => { cancelled = true; if (cy) cy.destroy(); };
+  }, [filter]);
+
   return (
-    <div className="glass scanlines" style={{ padding: 18, borderRadius: 14, position: 'relative', overflow: 'hidden' }}>
-      <HUDCorner position="tl" /><HUDCorner position="tr" /><HUDCorner position="bl" /><HUDCorner position="br" />
-      <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5 }}>GRAPH · NEXT PASS</div>
-      <div className="display" style={{ fontSize: 18, fontWeight: 500, marginTop: 6 }}>Cytoscape view — coming next iteration</div>
-      <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 10, lineHeight: 1.5 }}>
-        Will render <b>{opCount} ops</b> + <b>{cmdCount} commands</b> + <b>{screenCount} screens</b> with edges:
-        contract → screen (via manifest reads/writes), screen → command (via dispatches),
-        op → DB table (via handler), provider → LLM call (via router log).
+    <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
+        {(Object.keys(NODE_COLORS) as GraphNodeKind[]).map((k) => {
+          const c = NODE_COLORS[k];
+          const on = filter[k];
+          return (
+            <div key={k} onClick={() => setFilter((f) => ({ ...f, [k]: !f[k] }))} className="tap" style={{
+              padding: '5px 10px', borderRadius: 99, fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
+              background: on ? `${c.bg.replace(')', ' / 0.18)')}` : 'oklch(1 0 0 / 0.04)',
+              border: '1px solid ' + (on ? c.border : 'var(--hairline)'),
+              color: on ? c.bg.replace('oklch(0.78', 'oklch(0.95') : 'var(--fg-3)',
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.bg, opacity: on ? 1 : 0.3 }} />
+              {c.label}
+            </div>
+          );
+        })}
+      </div>
+      <div className="glass" style={{ position: 'relative', borderRadius: 12, height: '70vh', overflow: 'hidden' }}>
+        <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+        <div style={{
+          position: 'absolute', bottom: 8, left: 8, fontSize: 9,
+          fontFamily: 'var(--font-mono)', color: 'var(--fg-3)', letterSpacing: 0.5, pointerEvents: 'none',
+        }}>
+          drag · scroll to zoom · click+drag bg to pan
+        </div>
       </div>
     </div>
   );
