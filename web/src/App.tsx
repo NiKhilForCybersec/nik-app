@@ -3,7 +3,6 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { applyTheme, getTheme } from './theme/themes';
 import { TabBar, VoiceOverlay } from './components/shell';
 import { Toast } from './components/primitives';
-import { MOCK } from './data/mock';
 import { setStatusBar, prefs } from './native/capacitor';
 import { CommandBusProvider } from './lib/useCommand';
 import { useAuth } from './lib/auth';
@@ -11,6 +10,15 @@ import { useAuth } from './lib/auth';
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
 });
+
+// Placeholder toast shown 700ms after launch — swapped for real
+// notifications once the push/notif pipeline lands.
+const DEMO_NOTIF = {
+  kind: 'system',
+  title: 'Welcome back',
+  body: 'Tap the orb to ask Nik anything.',
+  time: 'now',
+} as const;
 
 import HomeScreen from './screens/HomeScreen';
 import ChatScreen from './screens/ChatScreen';
@@ -210,9 +218,9 @@ export default function App() {
       >
         {renderScreen()}
       </div>
-      {state.notifVisible && MOCK.notifications?.[0] && (
+      {state.notifVisible && (
         <Toast
-          notif={MOCK.notifications[0]}
+          notif={DEMO_NOTIF}
           onDismiss={() => setState((x) => ({ ...x, notifVisible: false }))}
         />
       )}

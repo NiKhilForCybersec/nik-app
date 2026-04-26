@@ -15,10 +15,14 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 | _Tasks + alarms shared between the parent(s) for kids' routines._ | |
 | [web/src/contracts/habits.ts](../web/src/contracts/habits.ts) | `Habit`, `HabitIcon`, `HabitSource`, `habits` |
 | _Single source of truth for everything the AI/app/backend can do_ | |
-| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `OperationName`, `REGISTRY`, `commands`, `diary`, `events`, `familyOps`, `habits`, `intents`, `memory`, `operations`, `score`, `sleep`, `ui` |
+| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `OperationName`, `REGISTRY`, `commands`, `diary`, `events`, `familyOps`, `habits`, `intents`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
 | _Re-exports every operation and UI command. Imports here are the_ | |
 | [web/src/contracts/intents.ts](../web/src/contracts/intents.ts) | `Intent`, `IntentKind`, `Memory`, `MemoryKind`, `intents`, `memory` |
 | _Operations the AI uses to remember things and schedule callbacks._ | |
+| [web/src/contracts/profile.ts](../web/src/contracts/profile.ts) | `Profile`, `ProfileStats`, `profile` |
+| _One row per user. Hero card stats (level/xp/streak), 5-pillar RPG_ | |
+| [web/src/contracts/quests.ts](../web/src/contracts/quests.ts) | `Quest`, `QuestRank`, `QuestStatus`, `quests` |
+| _Quests are gamified tasks (rank S-D, XP reward, optional progress)._ | |
 | [web/src/contracts/score.ts](../web/src/contracts/score.ts) | `BacklogItem`, `Pillar`, `PillarState`, `ScoreEvent`, `UserScore`, `score` |
 | _Score is computed from underlying signals (habit completions, focus_ | |
 | [web/src/contracts/sleep.ts](../web/src/contracts/sleep.ts) | `Dream`, `SleepNight`, `SleepSource`, `sleep` |
@@ -113,7 +117,6 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/HabitsScreen.tsx](../web/src/screens/HabitsScreen.tsx) | `*default*`, `AddHabitSheet`, `HabitsScreen`, `IntegrationChip` |
 | _Big hero ring · per-habit animated cards · confetti on completion · AI suggestions_ | |
 | [web/src/screens/HomeScreen.manifest.ts](../web/src/screens/HomeScreen.manifest.ts) | `manifest` |
-| _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/HomeScreen.tsx](../web/src/screens/HomeScreen.tsx) | `*default*`, `AnimatedRing`, `HomeScreen`, `LiveStat` |
 | [web/src/screens/KidsScreen.manifest.ts](../web/src/screens/KidsScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
@@ -132,12 +135,10 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/OnboardScreen.tsx](../web/src/screens/OnboardScreen.tsx) | `*default*`, `OnboardScreen` |
 | [web/src/screens/ProfileScreen.manifest.ts](../web/src/screens/ProfileScreen.manifest.ts) | `manifest` |
-| _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/ProfileScreen.tsx](../web/src/screens/ProfileScreen.tsx) | `*default*`, `PROFILE_PRESETS`, `ProfileScreen` |
 | [web/src/screens/QuestsScreen.manifest.ts](../web/src/screens/QuestsScreen.manifest.ts) | `manifest` |
-| _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/QuestsScreen.tsx](../web/src/screens/QuestsScreen.tsx) | `*default*`, `QuestsScreen` |
-| _Featured emergent quest (GPS)_ | |
+| _Featured emergent quest (GPS) — purely a placeholder until the_ | |
 | [web/src/screens/ScoreScreen.manifest.ts](../web/src/screens/ScoreScreen.manifest.ts) | `manifest` |
 | [web/src/screens/ScoreScreen.tsx](../web/src/screens/ScoreScreen.tsx) | `*default*`, `ScoreScreen` |
 | _Full breakdown of the 0-1000 Nik score: pillars, recent events,_ | |
@@ -196,10 +197,9 @@ _Locale-neutral seed shapes used by un-migrated screens._
 |---|---|
 | [web/src/data/circle.ts](../web/src/data/circle.ts) | `CIRCLE`, `CIRCLE_ALERTS`, `CIRCLE_MEMBERS`, `DEFAULT_SHARING`, `PRIVACY_CATEGORIES`, `TRUST_TIERS`, `VIEW_LOG`, `canCircleView` |
 | _Rich profiles, per-person sharing matrix, awareness log._ | |
-| [web/src/data/mock.ts](../web/src/data/mock.ts) | `MOCK` |
 
 ---
 
-**Stats**: 85 files, 237 exports.
+**Stats**: 86 files, 245 exports.
 
-**Last regenerated**: 2026-04-26T01:59:22.514Z.
+**Last regenerated**: 2026-04-26T02:19:24.607Z.

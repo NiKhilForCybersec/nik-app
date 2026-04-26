@@ -1,7 +1,6 @@
 /* Nik — Chat (AI voice + text) screen */
 import React from 'react';
 import type { ScreenProps } from '../App';
-import { MOCK } from '../data/mock';
 import { I } from '../components/icons';
 import { VoiceOrb, Waveform } from '../components/primitives';
 import { llm } from '../lib/llm';
@@ -14,8 +13,12 @@ type ChatMsg = {
   actions?: string[];
 };
 
+const WELCOME: ChatMsg[] = [
+  { from: 'ai', text: "Hi — I'm Nik. Ask me anything, or tell me to do something. I can switch themes, navigate, add quests, and more.", time: 'now' },
+];
+
 export default function ChatScreen({ listening, onVoice, setState }: ScreenProps) {
-  const [msgs, setMsgs] = React.useState<ChatMsg[]>(MOCK.chatHistory as ChatMsg[]);
+  const [msgs, setMsgs] = React.useState<ChatMsg[]>(WELCOME);
   const [input, setInput] = React.useState('');
   const [thinking, setThinking] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);

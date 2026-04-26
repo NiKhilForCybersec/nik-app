@@ -14,6 +14,24 @@ const DEV_EMAIL = 'arjun@local.dev';
 const DEV_PASSWORD = 'localdev';
 const isLocalSupabase = (import.meta.env.VITE_SUPABASE_URL ?? '').includes('127.0.0.1');
 
+// useAuth is called by every useOp consumer; without a module-level guard,
+// each instance independently fires the seed functions, racing the
+// "if empty" check and producing N× duplicate rows. This Set ensures
+// each user is seeded at most once per page lifetime.
+const seededUsers = new Set<string>();
+function seedOnce(userId: string, displayName?: string) {
+  if (seededUsers.has(userId)) return;
+  seededUsers.add(userId);
+  void seedSampleProfileIfEmpty(userId, displayName);
+  void seedSampleHabitsIfEmpty(userId);
+  void seedSampleEventsIfEmpty(userId);
+  void seedSampleDiaryIfEmpty(userId);
+  void seedSampleScoreIfEmpty(userId);
+  void seedSampleSleepIfEmpty(userId);
+  void seedSampleFamilyOpsIfEmpty(userId);
+  void seedSampleQuestsIfEmpty(userId);
+}
+
 export function useAuth() {
   const [userId, setUserId] = useState<string | undefined>(
     hasSupabase() ? undefined : DEV_USER_ID,
@@ -31,14 +49,7 @@ export function useAuth() {
         const id = data.session.user.id;
         setUserId(id);
         setReady(true);
-        if (isLocalSupabase) {
-          void seedSampleHabitsIfEmpty(id);
-          void seedSampleEventsIfEmpty(id);
-          void seedSampleDiaryIfEmpty(id);
-          void seedSampleScoreIfEmpty(id);
-          void seedSampleSleepIfEmpty(id);
-          void seedSampleFamilyOpsIfEmpty(id);
-        }
+        if (isLocalSupabase) seedOnce(id, data.session.user.user_metadata?.name);
         return;
       }
       // Local dev convenience: try sign-in, fall back to sign-up.
@@ -62,13 +73,7 @@ export function useAuth() {
         if (signed.data.session) {
           const id = signed.data.session.user.id;
           setUserId(id);
-          // Seed sample data if missing — idempotent; only inserts when empty.
-          void seedSampleHabitsIfEmpty(id);
-          void seedSampleEventsIfEmpty(id);
-          void seedSampleDiaryIfEmpty(id);
-          void seedSampleScoreIfEmpty(id);
-          void seedSampleSleepIfEmpty(id);
-          void seedSampleFamilyOpsIfEmpty(id);
+          seedOnce(id, signed.data.session.user.user_metadata?.name);
         } else {
           console.warn('[auth] dev sign-in/up failed', signed.error);
           setUserId(DEV_USER_ID);
@@ -399,4 +404,46 @@ async function seedSampleFamilyOpsIfEmpty(userId: string) {
     const { error } = await supabase.from('family_alarms').insert(alarms);
     if (error) console.warn('[seed] family_alarms insert failed', error);
   }
+}
+
+async function seedSampleProfileIfEmpty(userId: string, _displayName?: string) {
+  // The on-signup trigger has already inserted a minimal row. Only fill
+  // in demo level/xp/streak/stats if it's still pristine (level=1, xp=0).
+  const { data } = await supabase
+    .from('profiles')
+    .select('level, xp')
+    .eq('id', userId)
+    .maybeSingle();
+  if (!data || data.level !== 1 || data.xp !== 0) return;
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      title: 'Operative II',
+      level: 27,
+      xp: 1840,
+      xp_max: 2400,
+      streak: 42,
+      stats: { STR: 18, INT: 24, DEX: 15, VIT: 21, FOC: 30 },
+    })
+    .eq('id', userId);
+  if (error) console.warn('[seed] profiles update failed', error);
+}
+
+async function seedSampleQuestsIfEmpty(userId: string) {
+  const { count } = await supabase
+    .from('quests')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((count ?? 0) > 0) return;
+  const seed = [
+    { title: 'Complete 60 min workout',     rank: 'B', xp: 180, status: 'done',    progress: 1,    auto: true,  trigger: 'GPS · gym' },
+    { title: 'Deep focus — 2 hrs no phone', rank: 'A', xp: 240, status: 'active',  progress: 0.6,  auto: false, trigger: null },
+    { title: 'Reply to 3 family messages',  rank: 'C', xp: 60,  status: 'active',  progress: 0.33, auto: false, trigger: null },
+    { title: 'Read 30 pages',               rank: 'C', xp: 80,  status: 'active',  progress: 0.73, auto: false, trigger: null },
+    { title: 'Meditate before sleep',       rank: 'D', xp: 40,  status: 'pending', progress: null, auto: false, trigger: null },
+  ];
+  const { error } = await supabase.from('quests').insert(
+    seed.map((q) => ({ ...q, user_id: userId, completed_at: q.status === 'done' ? new Date().toISOString() : null })),
+  );
+  if (error) console.warn('[seed] quests insert failed', error);
 }

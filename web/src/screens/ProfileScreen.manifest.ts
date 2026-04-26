@@ -1,11 +1,15 @@
 import { defineScreen } from '../lib/screen-manifest';
+import { profile } from '../contracts';
 
-// TODO: populate as the screen wires to the registry.
 export const manifest = defineScreen({
   id: 'profile',
-  reads: [],
+  reads: [profile.get],
   writes: [],
   commands: [],
-  permissions: [],
-  aiAffordances: [],
+  permissions: ['profile.read'],
+  aiAffordances: [
+    'Switch to a different theme',
+    'Update my goal',
+    'Change my Nik persona',
+  ],
 });

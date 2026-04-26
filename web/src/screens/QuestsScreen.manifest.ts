@@ -1,11 +1,15 @@
 import { defineScreen } from '../lib/screen-manifest';
+import { quests } from '../contracts';
 
-// TODO: populate as the screen wires to the registry.
 export const manifest = defineScreen({
   id: 'quests',
-  reads: [],
+  reads: [quests.list],
   writes: [],
   commands: [],
-  permissions: [],
-  aiAffordances: [],
+  permissions: ['quests.read'],
+  aiAffordances: [
+    'Add a quest: <title>',
+    'How many XP today?',
+    'Mark <quest> done',
+  ],
 });

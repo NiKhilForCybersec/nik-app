@@ -1,11 +1,17 @@
 import type { ScreenProps } from '../App';
-import { MOCK } from '../data/mock';
 import { I } from '../components/icons';
 import { Chip, HUDCorner } from '../components/primitives';
+import { useOp } from '../lib/useOp';
+import { quests as questsOps } from '../contracts/quests';
 
 const rankHue: Record<string, number> = { S: 320, A: 30, B: 220, C: 150, D: 260 };
 
 export default function QuestsScreen({ onNav: _onNav }: ScreenProps) {
+  const { data: list = [] } = useOp(questsOps.list, { limit: 50 });
+  const xpToday = list
+    .filter((q) => q.status === 'done' && q.completed_at && isSameDay(q.completed_at, new Date()))
+    .reduce((s, q) => s + q.xp, 0);
+
   return (
     <div style={{ padding: '8px 16px 80px' }}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
@@ -13,10 +19,11 @@ export default function QuestsScreen({ onNav: _onNav }: ScreenProps) {
           <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>DAILY LOG</div>
           <div className="display" style={{ fontSize: 28, fontWeight: 500, lineHeight: 1.1, marginTop: 4 }}>Quests</div>
         </div>
-        <Chip tone="accent" size="lg">+540 XP TODAY</Chip>
+        <Chip tone="accent" size="lg">+{xpToday} XP TODAY</Chip>
       </div>
 
-      {/* Featured emergent quest (GPS) */}
+      {/* Featured emergent quest (GPS) — purely a placeholder until the
+          GPS quest engine lands. Kept inline so it isn't tied to mock data. */}
       <div className="glass scanlines fade-up" style={{
         padding: 16, marginBottom: 14, position: 'relative', overflow: 'hidden',
         background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue) / 0.18), oklch(0.65 0.22 calc(var(--hue) + 80) / 0.12))',
@@ -28,10 +35,10 @@ export default function QuestsScreen({ onNav: _onNav }: ScreenProps) {
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'oklch(0.9 0.14 var(--hue))', letterSpacing: 1.5 }}>EMERGENT · CONTEXT · GPS</span>
         </div>
         <div className="display" style={{ fontSize: 18, fontWeight: 500, lineHeight: 1.3, marginBottom: 8 }}>
-          Groceries run — you're 420m from Nature's Basket
+          Nearby errand — pick up groceries on your way home
         </div>
         <div style={{ fontSize: 12, color: 'var(--fg-2)', marginBottom: 12, lineHeight: 1.5 }}>
-          Meera added this 12 min ago. Nik detected your proximity and surfaced it. Accept to lock in +80 XP and save her a trip.
+          A family member added this 12 min ago. Nik would surface it when the GPS engine lands. Accept to lock in +80 XP.
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <div className="tap" style={{
@@ -50,7 +57,7 @@ export default function QuestsScreen({ onNav: _onNav }: ScreenProps) {
 
       {/* Quest list */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {MOCK.quests.map((q: any) => (
+        {list.map((q) => (
           <div key={q.id} className="glass fade-up" style={{
             padding: 12, display: 'flex', alignItems: 'center', gap: 12,
             opacity: q.status === 'done' ? 0.55 : 1,
@@ -72,7 +79,7 @@ export default function QuestsScreen({ onNav: _onNav }: ScreenProps) {
                 {q.trigger && <span>· {q.trigger}</span>}
                 {q.auto && <span style={{ color: 'oklch(0.85 0.14 150)' }}>· AUTO</span>}
               </div>
-              {q.progress && (
+              {q.progress != null && q.progress > 0 && q.progress < 1 && (
                 <div style={{ height: 2, background: 'oklch(1 0 0 / 0.06)', borderRadius: 99, marginTop: 6, overflow: 'hidden' }}>
                   <div className="xp-fill" style={{ height: '100%', width: `${q.progress * 100}%`, borderRadius: 99 }}/>
                 </div>
@@ -82,7 +89,17 @@ export default function QuestsScreen({ onNav: _onNav }: ScreenProps) {
             {q.status === 'pending' && <I.chevR size={14} stroke="var(--fg-3)"/>}
           </div>
         ))}
+        {!list.length && (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--fg-3)', fontSize: 12, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
+            NO QUESTS YET
+          </div>
+        )}
       </div>
     </div>
   );
+}
+
+function isSameDay(iso: string, d: Date): boolean {
+  const a = new Date(iso);
+  return a.getFullYear() === d.getFullYear() && a.getMonth() === d.getMonth() && a.getDate() === d.getDate();
 }

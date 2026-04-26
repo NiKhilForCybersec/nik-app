@@ -1,10 +1,11 @@
 /* Nik — Profile + Settings */
 import React from 'react';
 import type { ScreenProps } from '../App';
-import { MOCK } from '../data/mock';
 import { THEMES } from '../theme/themes';
 import { I } from '../components/icons';
 import { Avatar, Chip, HUDCorner, XPBar } from '../components/primitives';
+import { useOp } from '../lib/useOp';
+import { profile as profileOps } from '../contracts/profile';
 
 export const PROFILE_PRESETS: Array<Record<string, any>> = [
   { id: 'obsidian', name: 'Obsidian Youth', subtitle: 'Solo Leveling · HUD · electric', hue: 220, mode: 'dark', intensity: 'full', tag: 'Default' },
@@ -18,7 +19,7 @@ export const PROFILE_PRESETS: Array<Record<string, any>> = [
 ];
 
 export default function ProfileScreen({ onNav: _onNav, state, setState }: ScreenProps) {
-  const u = MOCK.user;
+  const { data: u } = useOp(profileOps.get, {});
   const [tab, setTab] = React.useState('themes'); // profile | themes | connect | notifs | about
   const [appliedFlash, setAppliedFlash] = React.useState<string | null>(null);
 
@@ -47,17 +48,17 @@ export default function ProfileScreen({ onNav: _onNav, state, setState }: Screen
       <div className="glass scanlines fade-up" style={{ padding: 18, marginBottom: 14, position: 'relative', overflow: 'hidden' }}>
         <HUDCorner position="tl"/><HUDCorner position="tr"/><HUDCorner position="bl"/><HUDCorner position="br"/>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <Avatar name={u.name} size={68} hue={s.hue} ring/>
+          <Avatar name={u?.name ?? '—'} size={68} hue={s.hue} ring/>
           <div style={{ flex: 1 }}>
-            <div className="display" style={{ fontSize: 20, fontWeight: 600 }}>{u.name} Menon</div>
-            <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 0.5 }}>{u.title.toUpperCase()} · LVL {u.level}</div>
+            <div className="display" style={{ fontSize: 20, fontWeight: 600 }}>{u?.name ?? '—'}</div>
+            <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 0.5 }}>{(u?.title ?? '').toUpperCase()} · LVL {u?.level ?? 1}</div>
             <div style={{ marginTop: 8 }}>
-              <XPBar cur={u.xp} max={u.xpMax} level={u.level} compact/>
+              <XPBar cur={u?.xp ?? 0} max={u?.xp_max ?? 1000} level={u?.level ?? 1} compact/>
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, marginTop: 14, paddingTop: 12, borderTop: '1px solid var(--hairline)' }}>
-          {[['Age', '32'], ['Joined', '14mo'], ['Memories', '2,840'], ['Quests', '184']].map(([k, v]) => (
+          {[['Age', u?.age ? String(u.age) : '—'], ['Joined', u?.joined_at ? joinedAgo(u.joined_at) : '—'], ['Streak', String(u?.streak ?? 0)], ['Lvl', String(u?.level ?? 1)]].map(([k, v]) => (
             <div key={k} style={{ flex: 1, textAlign: 'center' }}>
               <div className="display" style={{ fontSize: 16, fontWeight: 600 }}>{v}</div>
               <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>{k.toUpperCase()}</div>
@@ -81,12 +82,12 @@ export default function ProfileScreen({ onNav: _onNav, state, setState }: Screen
       {tab === 'profile' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {[
-            { k: 'Name', v: 'Arjun Menon', icon: 'user' },
-            { k: 'Age', v: '32', icon: 'calendar' },
-            { k: 'Height · Weight', v: '178cm · 74kg', icon: 'trend' },
-            { k: 'Goal', v: 'Hypertrophy · sleep 8h', icon: 'target' },
-            { k: 'Nik persona', v: 'Direct · witty', icon: 'sparkle' },
-            { k: 'Voice', v: 'Nova · EN-IN', icon: 'mic' },
+            { k: 'Name',            v: u?.name ?? '—', icon: 'user' },
+            { k: 'Age',             v: u?.age ? String(u.age) : '—', icon: 'calendar' },
+            { k: 'Height · Weight', v: u?.height_cm && u?.weight_kg ? `${u.height_cm}cm · ${u.weight_kg}kg` : '—', icon: 'trend' },
+            { k: 'Goal',            v: u?.goal ?? '—', icon: 'target' },
+            { k: 'Nik persona',     v: u?.persona ?? '—', icon: 'sparkle' },
+            { k: 'Voice',           v: u?.voice ?? '—', icon: 'mic' },
           ].map(r => {
             const Ic = (I as any)[r.icon];
             return (
@@ -274,6 +275,14 @@ export default function ProfileScreen({ onNav: _onNav, state, setState }: Screen
       )}
     </div>
   );
+}
+
+function joinedAgo(iso: string): string {
+  const days = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000));
+  if (days < 30) return `${days}d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo`;
+  return `${Math.floor(months / 12)}y`;
 }
 
 const ToggleRow: React.FC<{ label: string; sub: string; defaultOn: boolean }> = ({ label, sub, defaultOn }) => {

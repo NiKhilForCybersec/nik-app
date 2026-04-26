@@ -3,10 +3,25 @@ import React from 'react';
 import { motion, useMotionValue, useTransform, useReducedMotion, animate, useSpring } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import type { ScreenProps } from '../App';
-import { MOCK } from '../data/mock';
 import { getThemeVocab } from '../theme/themes';
 import { I } from '../components/icons';
 import { XPBar, Avatar, Chip, VoiceOrb, HUDCorner } from '../components/primitives';
+import { useOp } from '../lib/useOp';
+import { profile as profileOps } from '../contracts/profile';
+import { habits as habitsOps } from '../contracts/habits';
+import { quests as questsOps } from '../contracts/quests';
+import { score as scoreOps } from '../contracts/score';
+
+// Until the family-circle contract lands, the Home avatar row uses these
+// generic placeholders. Names are universal-locale-neutral letters so
+// the design renders regardless of the user's region.
+const FAMILY_PLACEHOLDERS: Array<{ name: string; hue: number; status: 'online'|'away'|'offline'; self?: boolean }> = [
+  { name: 'M', hue: 320, status: 'online' },
+  { name: 'A', hue: 220, status: 'online', self: true },
+  { name: 'K', hue: 30,  status: 'away' },
+  { name: 'D', hue: 150, status: 'online' },
+  { name: 'R', hue: 260, status: 'offline' },
+];
 
 // Cubic-bezier ease — typed as a fixed-length tuple so framer-motion's
 // `Easing` type accepts it (otherwise it widens to `number[]`).
@@ -66,7 +81,21 @@ const wordItem: Variants = {
 };
 
 export default function HomeScreen({ onNav, onVoice, intensity = 'medium', themeId }: ScreenProps) {
-  const u = MOCK.user;
+  const { data: profile } = useOp(profileOps.get, {});
+  const { data: habitsList = [] } = useOp(habitsOps.list, {});
+  const { data: activeQuests = [] } = useOp(questsOps.list, { status: 'active', limit: 5 });
+  const { data: score } = useOp(scoreOps.get, {});
+
+  const u = {
+    name: profile?.name ?? 'Friend',
+    title: profile?.title ?? 'Operative II',
+    level: profile?.level ?? 1,
+    xp: profile?.xp ?? 0,
+    xpMax: profile?.xp_max ?? 1000,
+    streak: profile?.streak ?? 0,
+    stats: profile?.stats ?? { STR: 10, INT: 10, DEX: 10, VIT: 10, FOC: 10 },
+  };
+
   const vocab = getThemeVocab(themeId ?? '');
   const reduce = !!useReducedMotion();
   const V = {
@@ -77,6 +106,14 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
     quest: vocab.quest,
     emergent: vocab.emergent,
   };
+
+  // Header date/weather — date is real, weather is a placeholder until
+  // the weather integration lands.
+  const today = React.useMemo(() => {
+    const d = new Date();
+    return d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+  }, []);
+  const weather = '—';
 
   // ── Live "ticking" data feel — updates once per second ──
   const [tick, setTick] = React.useState(0);
@@ -89,8 +126,8 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
   const liveKcal = 1840 + (tick % 6);
 
   // Pick the highlight habit (closest to complete but not done, else most-streaked)
-  const habitsList = (MOCK.habits as any[]);
   const highlight = React.useMemo(() => {
+    if (!habitsList.length) return undefined;
     const open = habitsList.filter((h) => h.done < h.target);
     if (open.length) {
       return open.slice().sort((a, b) => (b.done / b.target) - (a.done / a.target))[0];
@@ -101,6 +138,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
   const doneCount = habitsList.filter((h) => h.done >= h.target).length;
 
   const greetWords = `${V.greet} ${u.name}`.trim().split(/\s+/);
+  const featuredQuest = activeQuests[0];
 
   return (
     <motion.div
@@ -118,7 +156,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
             transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
             style={{ width: 6, height: 6, borderRadius: '50%', background: 'oklch(0.78 0.15 150)', boxShadow: '0 0 6px oklch(0.78 0.15 150)' }}
           />
-          {String(MOCK.today.date).toUpperCase()} · {MOCK.today.weather}
+          {today.toUpperCase()} · {weather}
         </div>
         <motion.div
           className="display"
@@ -277,7 +315,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
             <div style={{ fontSize: 9, color: 'oklch(0.75 0.18 140)', fontFamily: 'var(--font-mono)' }}>+28</div>
           </div>
           <div className="display" style={{ fontSize: 38, fontWeight: 500, lineHeight: 1, marginTop: 10, color: 'oklch(0.94 0.12 var(--hue))', fontVariantNumeric: 'tabular-nums' }}>
-            <Counter to={742} reduce={reduce} duration={1.0} />
+            <Counter to={score?.total ?? 0} reduce={reduce} duration={1.0} />
           </div>
           <div style={{ display: 'flex', gap: 3, marginTop: 8 }}>
             {[0.73, 0.78, 0.74, 0.73].map((p, i) => (
@@ -364,7 +402,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div style={{ fontSize: 10, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)', marginBottom: 3 }}>ACTIVE {V.quest.toUpperCase()}</div>
-              <div className="display" style={{ fontSize: 15, fontWeight: 500, marginBottom: 6 }}>{MOCK.quests[1]?.title}</div>
+              <div className="display" style={{ fontSize: 15, fontWeight: 500, marginBottom: 6 }}>{featuredQuest?.title ?? 'No active quest'}</div>
             </div>
             <motion.div
               initial={reduce ? false : { rotate: -90, opacity: 0 }}
@@ -411,7 +449,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
             <Chip tone="ok" size="sm">3 ONLINE</Chip>
           </div>
           <div style={{ display: 'flex', marginBottom: 8 }}>
-            {MOCK.family.slice(0, 5).map((p: any, i: number) => (
+            {FAMILY_PLACEHOLDERS.slice(0, 5).map((p, i) => (
               <motion.div
                 key={i}
                 initial={reduce ? false : { opacity: 0, x: -8, scale: 0.7 }}
