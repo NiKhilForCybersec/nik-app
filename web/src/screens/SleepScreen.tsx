@@ -2,35 +2,61 @@
 
 import React from 'react';
 import type { ScreenProps } from '../App';
+import { useOp } from '../lib/useOp';
+import { sleep as sleepOps, type SleepNight } from '../contracts/sleep';
 
 type SleepStage = 'awake' | 'light' | 'deep' | 'rem';
 type StageSeg = { stage: SleepStage; start: number; end: number };
 type Dream = { date: string; tag: string; mood: string; text: string };
 
-const SLEEP_DATA = {
-  lastNight: { score: 84, hours: 7.4, deep: 1.6, rem: 1.9, light: 3.4, awake: 0.5 },
-  trend7: [78, 72, 88, 65, 91, 80, 84],
-  bedtime: '23:15', wake: '06:45',
+const FALLBACK = {
+  lastNight: { score: 0, hours: 0, deep: 0, rem: 0, light: 0, awake: 0 },
+  trend7: [0, 0, 0, 0, 0, 0, 0],
+  bedtime: '—', wake: '—',
   goal: 8,
-  stages: [
-    { stage: 'awake', start: 0, end: 4 },
-    { stage: 'light', start: 4, end: 32 },
-    { stage: 'deep', start: 32, end: 50 },
-    { stage: 'light', start: 50, end: 68 },
-    { stage: 'rem', start: 68, end: 92 },
-    { stage: 'awake', start: 92, end: 100 },
-  ] as StageSeg[],
-  dreams: [
-    { date: 'Last night', tag: 'vivid', mood: 'curious', text: "Walked through a library where each book was a different season. The librarian had Meera's laugh." },
-    { date: '2 nights ago', tag: 'fragment', mood: 'unsettled', text: 'Running but the floor kept changing texture. Woke up at 4:12.' },
-    { date: '4 nights ago', tag: 'lucid', mood: 'calm', text: 'Realized I was dreaming, looked at my hands. Stayed for what felt like an hour.' },
-  ] as Dream[],
+  stages: [] as StageSeg[],
+  dreams: [] as Dream[],
+};
+
+const fmtNightLabel = (dateStr: string, idx: number) => {
+  if (idx === 0) return 'Last night';
+  if (idx === 1) return '2 nights ago';
+  if (idx < 7)   return `${idx + 1} nights ago`;
+  return new Date(dateStr).toLocaleDateString([], { day: 'numeric', month: 'short' });
 };
 
 export default function SleepScreen(_props: ScreenProps) {
   const [tab, setTab] = React.useState<'overview' | 'wind-down' | 'dreams' | 'alarm'>('overview');
   const [windDownActive, setWindDownActive] = React.useState(false);
-  const s = SLEEP_DATA;
+
+  const nightsQ = useOp(sleepOps.recent, { limit: 14 });
+  const nights: SleepNight[] = nightsQ.data ?? [];
+
+  // Compose the existing UI shape from DB rows.
+  const last = nights[0];
+  const stagesObj = (last?.stages as { minutes?: Record<string, number>; segments?: StageSeg[] } | undefined) ?? {};
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+  const lastNight = last ? {
+    score: last.score ?? 0,
+    hours: round1((last.duration_min ?? 0) / 60),
+    deep:  round1((stagesObj.minutes?.deep  ?? 0) / 60),
+    rem:   round1((stagesObj.minutes?.rem   ?? 0) / 60),
+    light: round1((stagesObj.minutes?.light ?? 0) / 60),
+    awake: round1((stagesObj.minutes?.awake ?? 0) / 60),
+  } : FALLBACK.lastNight;
+  const bedtime = last?.asleep_at ? new Date(last.asleep_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : FALLBACK.bedtime;
+  const wake    = last?.woke_at   ? new Date(last.woke_at).toLocaleTimeString([],   { hour: '2-digit', minute: '2-digit', hour12: false }) : FALLBACK.wake;
+  const trend7 = nights.slice(0, 7).map((n) => n.score ?? 0).reverse();
+  const stages: StageSeg[] = (stagesObj.segments as StageSeg[]) ?? FALLBACK.stages;
+  const dreams: Dream[] = nights.flatMap((n, i) =>
+    (n.dreams ?? []).map((d) => ({
+      date: fmtNightLabel(n.night_date, i),
+      tag: (d.tags?.[0] ?? 'note') as string,
+      mood: (d.mood ?? 'unsaid') as string,
+      text: d.text,
+    })),
+  );
+  const s = { lastNight, trend7, bedtime, wake, goal: 8, stages, dreams };
 
   return (
     <div style={{ padding: '8px 16px 100px' }}>

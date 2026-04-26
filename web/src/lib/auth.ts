@@ -36,6 +36,7 @@ export function useAuth() {
           void seedSampleEventsIfEmpty(id);
           void seedSampleDiaryIfEmpty(id);
           void seedSampleScoreIfEmpty(id);
+          void seedSampleSleepIfEmpty(id);
         }
         return;
       }
@@ -65,6 +66,7 @@ export function useAuth() {
           void seedSampleEventsIfEmpty(id);
           void seedSampleDiaryIfEmpty(id);
           void seedSampleScoreIfEmpty(id);
+          void seedSampleSleepIfEmpty(id);
         } else {
           console.warn('[auth] dev sign-in/up failed', signed.error);
           setUserId(DEV_USER_ID);
@@ -284,4 +286,65 @@ async function seedScoreBacklog(userId: string) {
     { user_id: userId, title: 'Reading 30min',     missed_label: 'Today',      cost:  0, makeup: 'Catch up before bed (+4)', pillar: 'mind',   dismissable: true, gentle: true  },
   ]);
   if (bkErr) console.warn('[seed] score_backlog insert failed', bkErr);
+}
+
+async function seedSampleSleepIfEmpty(userId: string) {
+  const { count } = await supabase
+    .from('sleep_nights')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((count ?? 0) > 0) return;
+
+  const day = 86_400_000;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+
+  // 7 nights of sleep, with realistic-ish numbers + a couple dreams.
+  const seed = Array.from({ length: 7 }).map((_, i) => {
+    const date = new Date(today.getTime() - i * day);
+    const score = [84, 80, 91, 65, 88, 72, 78][i];
+    const totalMin = [444, 420, 480, 360, 462, 408, 432][i];
+    const stages = {
+      minutes: {
+        light: Math.round(totalMin * 0.55),
+        deep:  Math.round(totalMin * 0.20),
+        rem:   Math.round(totalMin * 0.20),
+        awake: Math.round(totalMin * 0.05),
+      },
+      segments: [
+        { stage: 'awake', start: 0,  end: 4   },
+        { stage: 'light', start: 4,  end: 32  },
+        { stage: 'deep',  start: 32, end: 50  },
+        { stage: 'light', start: 50, end: 68  },
+        { stage: 'rem',   start: 68, end: 92  },
+        { stage: 'awake', start: 92, end: 100 },
+      ],
+    };
+    const dreams = i === 0 ? [
+      { text: 'Walked through a library where each book was a different season.', mood: 'curious', tags: ['vivid'] },
+    ] : i === 2 ? [
+      { text: 'Realized I was dreaming, looked at my hands. Stayed for what felt like an hour.', mood: 'calm', tags: ['lucid'] },
+    ] : [];
+    const asleep = new Date(date.getTime() - 1 * day + 23.25 * 3_600_000);  // 23:15 the night before
+    const woke   = new Date(date.getTime() + 6.75 * 3_600_000);             // 06:45 same morning
+    return {
+      user_id: userId,
+      night_date: fmtDate(date),
+      asleep_at: asleep.toISOString(),
+      woke_at: woke.toISOString(),
+      duration_min: totalMin,
+      score,
+      stages,
+      dreams,
+      hrv_ms: 48,
+      resting_hr: 56,
+      wind_down_complete: 0.8,
+      source: 'apple-health',
+      notes: null,
+    };
+  });
+
+  const { error } = await supabase.from('sleep_nights').insert(seed);
+  if (error) console.warn('[seed] sleep_nights insert failed', error);
 }
