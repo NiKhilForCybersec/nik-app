@@ -76,16 +76,28 @@ export default function FocusScreen({ onExit }: ScreenProps) {
     return () => clearInterval(id);
   }, [stage, total]);
 
-  // sim distraction (simulate after 9s into session for demo)
+  // App-blur detection — when the user switches apps, locks the
+  // phone, or closes the browser tab during a running session, that's
+  // a real distraction. Auto-log it. On 'hard' strictness also force
+  // the session to end (true lockdown). 'soft' / 'medium' just log
+  // and let the session continue when the user returns.
   React.useEffect(() => {
     if (stage !== 'running') return;
-    const t1 = setTimeout(() => {
-      if (stage === 'running') {
-        setShowLeave(true);
+    const onHidden = () => {
+      if (document.visibilityState !== 'hidden') return;
+      const at = elapsed;
+      setDistractions((d) => [...d, { at, reason: 'Left the app', icon: '↗' }]);
+      if (strictness === 'hard') {
+        setStage('report');
       }
-    }, 9000);
-    return () => clearTimeout(t1);
-  }, [stage]);
+    };
+    document.addEventListener('visibilitychange', onHidden);
+    window.addEventListener('blur', onHidden);
+    return () => {
+      document.removeEventListener('visibilitychange', onHidden);
+      window.removeEventListener('blur', onHidden);
+    };
+  }, [stage, strictness, elapsed]);
 
   const startSession = () => {
     setElapsed(0);
@@ -124,13 +136,34 @@ export default function FocusScreen({ onExit }: ScreenProps) {
   // RUNNING
   return (
     <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(ellipse at center, oklch(0.18 0.04 var(--hue)) 0%, oklch(0.06 0.02 var(--hue)) 70%)', overflow: 'hidden', display: 'flex', flexDirection: 'column', zIndex: 100 }}>
-      {/* Lockdown bar */}
+      {/* Lockdown bar — tab bar is hidden by the absolute overlay, so
+          there's no nav out except End early. */}
       <div style={{ padding: '50px 16px 12px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid oklch(1 0 0 / 0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'oklch(0.75 0.18 140)', boxShadow: '0 0 8px oklch(0.75 0.18 140)' }}/>
-          <div style={{ fontSize: 10, color: 'oklch(0.75 0.18 140)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5 }}>FOCUS LOCKED · {strictness.toUpperCase()}</div>
+          <div style={{ fontSize: 10, color: 'oklch(0.75 0.18 140)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5 }}>
+            FOCUS LOCKED · {strictness.toUpperCase()}
+          </div>
         </div>
-        <div style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>{distractions.length} DISTRACTIONS</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => setPendingDistraction({ at: elapsed })}
+            className="tap"
+            style={{
+              padding: '4px 8px', borderRadius: 6,
+              fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 1,
+              background: 'oklch(0.65 0.22 25 / 0.12)',
+              border: '1px solid oklch(0.65 0.22 25 / 0.30)',
+              color: 'oklch(0.85 0.18 25)',
+              cursor: 'pointer',
+            }}
+          >
+            + DISTRACTION
+          </button>
+          <div style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
+            {distractions.length}
+          </div>
+        </div>
       </div>
 
       {/* Center — timer + tree */}

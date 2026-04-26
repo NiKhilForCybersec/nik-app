@@ -1,11 +1,15 @@
 import { defineScreen } from '../lib/screen-manifest';
+import { items } from '../contracts';
 
-// TODO: populate as the screen wires to the registry.
 export const manifest = defineScreen({
   id: 'money',
-  reads: [],
+  reads: [items.list],
   writes: [],
   commands: [],
-  permissions: [],
-  aiAffordances: [],
+  permissions: ['items.read'],
+  aiAffordances: [
+    'How much am I spending this month?',
+    'What bills are due this week?',
+    'Total of my subscriptions',
+  ],
 });
