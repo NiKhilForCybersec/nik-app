@@ -20,6 +20,7 @@ import { events } from './events';
 import { diary } from './diary';
 import { score } from './score';
 import { sleep } from './sleep';
+import { familyOps } from './familyOps';
 
 export { habits } from './habits';
 export { ui } from './ui-commands';
@@ -28,6 +29,7 @@ export { events } from './events';
 export { diary } from './diary';
 export { score } from './score';
 export { sleep } from './sleep';
+export { familyOps } from './familyOps';
 
 // Flat registry — used by MCP tool generator + dev overlay.
 export const operations = {
@@ -38,6 +40,7 @@ export const operations = {
   ...diary,
   ...score,
   ...sleep,
+  ...familyOps,
 } as const;
 
 export const commands = {

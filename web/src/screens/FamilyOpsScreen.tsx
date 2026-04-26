@@ -5,6 +5,8 @@ import { useMemo, useState, type FC, type ReactNode } from 'react';
 import type { ScreenProps } from '../App';
 import { I } from '../components/icons';
 import { Chip, Ring, Avatar, HUDCorner } from '../components/primitives';
+import { useOp, useOpMutation } from '../lib/useOp';
+import { familyOps as familyOpsContract } from '../contracts/familyOps';
 
 // ── MOCK DATA (preserved) ──────────────────────────────────
 const FAMILY_TASKS_SEED: Array<Record<string, any>> = [
@@ -62,12 +64,18 @@ const VOICE_COMMAND_EXAMPLES: Array<Record<string, any>> = [
 ];
 
 const KIDS: Record<string, any> = {
-  kiaan: { name: 'Kiaan', age: 9, hue: 220, emoji: 'K' },
-  anya:  { name: 'Anya',  age: 6, hue: 320, emoji: 'A' },
+  kid_a: { name: 'Kid 1', age: 9, hue: 220, emoji: '1' },
+  kid_b: { name: 'Kid 2', age: 6, hue: 320, emoji: '2' },
+  // legacy keys (kept so in-file MOCK seed still renders before DB seeds):
+  kiaan: { name: 'Kid 1', age: 9, hue: 220, emoji: '1' },
+  anya:  { name: 'Kid 2', age: 6, hue: 320, emoji: '2' },
 };
 const PARENTS: Record<string, any> = {
-  meera: { name: 'Meera', role: 'Mom',       hue: 320 },
-  arjun: { name: 'Arjun', role: 'Dad (you)', hue: 220, self: true },
+  parent_a: { name: 'You',     role: 'You',     hue: 220, self: true },
+  parent_b: { name: 'Partner', role: 'Partner', hue: 320 },
+  // legacy keys (kept so in-file MOCK seed still renders before DB seeds):
+  arjun:    { name: 'You',     role: 'You',     hue: 220, self: true },
+  meera:    { name: 'Partner', role: 'Partner', hue: 320 },
 };
 
 const RECURRENCE_RULES: Array<Record<string, any>> = [
@@ -99,41 +107,97 @@ const SectionHead: FC<{ title: string; subtitle: string; right?: ReactNode }> = 
 // ── Main screen ────────────────────────────────────────────
 export default function FamilyOpsScreen({ onNav }: ScreenProps) {
   void onNav;
-  const [tasks, setTasks] = useState(FAMILY_TASKS_SEED);
-  const [clusters, setClusters] = useState(ALARM_CLUSTERS_SEED);
-  const [expandedCluster, setExpandedCluster] = useState<string | null>('c1');
+  const tasksQ = useOp(familyOpsContract.tasks, {});
+  const alarmsQ = useOp(familyOpsContract.alarms, {});
+  const toggleTaskMut = useOpMutation(familyOpsContract.toggleTask);
+  const toggleAlarmMut = useOpMutation(familyOpsContract.toggleAlarmCluster);
 
-  const toggleTask = (id: string) =>
-    setTasks(ts => ts.map(t => (t.id === id ? { ...t, done: !t.done } : t)));
-  const toggleCluster = (id: string) =>
-    setClusters(cs => cs.map(c => (c.id === id ? { ...c, active: !c.active } : c)));
+  // Map DB rows → the existing UI shape so the rich render pipeline
+  // doesn't need restructuring.
+  const tasks: Array<Record<string, any>> = (tasksQ.data ?? []).length
+    ? (tasksQ.data ?? []).map((t) => ({
+        id: t.id,
+        title: t.title,
+        time: t.time_of_day ?? '',
+        owner: t.owner,
+        pairedWith: t.paired_with,
+        done: t.status === 'done',
+        kids: t.kids,
+        recurrence: t.recurrence,
+        category: 'family',
+        gps: t.geofence_label ?? undefined,
+      }))
+    : FAMILY_TASKS_SEED;
+  const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const fmtDays = (days: number[]): string => {
+    if (days.length === 7) return 'Every day';
+    if (days.length === 5 && days.every((d) => d >= 1 && d <= 5)) return 'Mon\u2013Fri';
+    if (days.length === 2 && days.includes(0) && days.includes(6)) return 'Weekends';
+    return days.map((d) => dayNames[d]).join(', ');
+  };
+  const clusters: Array<Record<string, any>> = (alarmsQ.data ?? []).length
+    ? (alarmsQ.data ?? []).map((c) => ({
+        id: c.id,
+        name: c.cluster_name,
+        description: '',
+        active: c.master_enabled,
+        schedule: fmtDays(c.active_days),
+        kidTag: 'kids',
+        voicePhrase: c.voice_phrase ? `"${c.voice_phrase}"` : '',
+        alarms: c.alarms.map((a, i) => ({
+          id: `${c.id}-${i}`,
+          label: a.label ?? a.kid ?? 'alarm',
+          time: a.time,
+          kid: a.kid,
+          icon: 'clock',
+        })),
+      }))
+    : ALARM_CLUSTERS_SEED;
+
+  const [expandedCluster, setExpandedCluster] = useState<string | null>(null);
+
+  const toggleTask = (id: string) => {
+    const t = tasks.find(x => x.id === id);
+    if (!t || !t.id || typeof t.id !== 'string' || t.id.length < 30) return; // local mock IDs are short — skip mutation
+    toggleTaskMut.mutate({ id: t.id, status: t.done ? 'pending' : 'done' });
+  };
+  const toggleCluster = (id: string) => {
+    const c = clusters.find(x => x.id === id);
+    if (!c || !c.id || typeof c.id !== 'string' || c.id.length < 30) return;
+    toggleAlarmMut.mutate({ id: c.id, enabled: !c.active });
+  };
 
   const stats = useMemo(() => {
     const total = tasks.length;
     const done = tasks.filter(t => t.done).length;
-    const arjunCount = tasks.filter(t => t.owner === 'arjun').length;
-    const meeraCount = tasks.filter(t => t.owner === 'meera').length;
-    const heavier = arjunCount >= meeraCount ? 'arjun' : 'meera';
+    // "You" = whichever parent identifier the seed/DB uses for the current user.
+    const youKey = tasks.find(t => PARENTS[t.owner]?.self)?.owner ?? 'parent_a';
+    const partnerKey = Object.keys(PARENTS).find(k => k !== youKey && !PARENTS[k].self) ?? 'parent_b';
+    const arjunCount = tasks.filter(t => t.owner === youKey).length;
+    const meeraCount = tasks.filter(t => t.owner === partnerKey).length;
+    const heavier = arjunCount >= meeraCount ? youKey : partnerKey;
     const next = tasks.find(t => !t.done);
-    return { total, done, pct: total ? done / total : 0, arjunCount, meeraCount, heavier, next };
+    return { total, done, pct: total ? done / total : 0, arjunCount, meeraCount, heavier, next, youKey };
   }, [tasks]);
 
-  const markMineDone = () =>
-    setTasks(ts => ts.map(t => (t.owner === 'arjun' && !t.done ? { ...t, done: true } : t)));
+  const markMineDone = () => {
+    const youOpen = tasks.filter(t => t.owner === stats.youKey && !t.done);
+    youOpen.forEach(t => toggleTaskMut.mutate({ id: t.id, status: 'done' }));
+  };
 
   return (
     <div style={{ padding: '8px 16px 100px', color: 'var(--fg)', position: 'relative' }}>
       {/* ── Header ─────────────────────────────────────────── */}
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, fontFamily: 'var(--font-mono)' }}>
-          TODAY · APRIL 25 · BENGALURU
+          TODAY · {new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' }).toUpperCase()}
         </div>
         <div className="display" style={{ fontSize: 32, fontWeight: 500, lineHeight: 1.05, marginTop: 4, letterSpacing: -0.5 }}>
           Family ops
         </div>
         <div style={{ fontSize: 12, color: 'var(--fg-2)', marginTop: 6, lineHeight: 1.5 }}>
-          You've got <b style={{ color: `oklch(0.9 0.14 ${PARENTS.arjun.hue})` }}>{stats.arjunCount} on your plate</b>,
-          {' '}Meera has <b style={{ color: `oklch(0.9 0.14 ${PARENTS.meera.hue})` }}>{stats.meeraCount}</b>. Kids' day moves through {clusters.filter(c => c.active).length} routines.
+          You've got <b style={{ color: `oklch(0.9 0.14 ${PARENTS[stats.youKey]?.hue ?? 220})` }}>{stats.arjunCount} on your plate</b>,
+          {' '}your partner has <b style={{ color: `oklch(0.9 0.14 ${PARENTS.parent_b.hue})` }}>{stats.meeraCount}</b>. Kids' day moves through {clusters.filter(c => c.active).length} routines.
         </div>
       </div>
 

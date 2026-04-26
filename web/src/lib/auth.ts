@@ -37,6 +37,7 @@ export function useAuth() {
           void seedSampleDiaryIfEmpty(id);
           void seedSampleScoreIfEmpty(id);
           void seedSampleSleepIfEmpty(id);
+          void seedSampleFamilyOpsIfEmpty(id);
         }
         return;
       }
@@ -67,6 +68,7 @@ export function useAuth() {
           void seedSampleDiaryIfEmpty(id);
           void seedSampleScoreIfEmpty(id);
           void seedSampleSleepIfEmpty(id);
+          void seedSampleFamilyOpsIfEmpty(id);
         } else {
           console.warn('[auth] dev sign-in/up failed', signed.error);
           setUserId(DEV_USER_ID);
@@ -347,4 +349,54 @@ async function seedSampleSleepIfEmpty(userId: string) {
 
   const { error } = await supabase.from('sleep_nights').insert(seed);
   if (error) console.warn('[seed] sleep_nights insert failed', error);
+}
+
+async function seedSampleFamilyOpsIfEmpty(userId: string) {
+  // Tasks
+  const { count: tCount } = await supabase
+    .from('family_tasks').select('*', { head: true, count: 'exact' }).eq('user_id', userId);
+  if ((tCount ?? 0) === 0) {
+    const tasks = [
+      { user_id: userId, title: 'Breakfast for kids',  time_of_day: '07:15', owner: 'parent_a', paired_with: 'parent_b', status: 'done',    kids: ['kid_a', 'kid_b'], recurrence: 'weekday', recurrence_payload: {}, geofence_lat: null, geofence_lng: null, geofence_label: null, created_by: 'user', source: null },
+      { user_id: userId, title: 'School drop-off',     time_of_day: '08:10', owner: 'parent_a', paired_with: null,        status: 'done',    kids: ['kid_a', 'kid_b'], recurrence: 'weekday', recurrence_payload: {}, geofence_lat: null, geofence_lng: null, geofence_label: 'School', created_by: 'user', source: null },
+      { user_id: userId, title: 'Pickup from school',  time_of_day: '15:30', owner: 'parent_b', paired_with: null,        status: 'pending', kids: ['kid_a', 'kid_b'], recurrence: 'weekday', recurrence_payload: {}, geofence_lat: null, geofence_lng: null, geofence_label: 'School', created_by: 'user', source: null },
+      { user_id: userId, title: 'Piano practice',       time_of_day: '17:00', owner: 'parent_b', paired_with: null,        status: 'pending', kids: ['kid_a'],          recurrence: 'tue-thu', recurrence_payload: {}, geofence_lat: null, geofence_lng: null, geofence_label: null, created_by: 'user', source: null },
+      { user_id: userId, title: 'Bedtime story',        time_of_day: '20:30', owner: 'parent_a', paired_with: null,        status: 'pending', kids: ['kid_b'],          recurrence: 'weekday', recurrence_payload: {}, geofence_lat: null, geofence_lng: null, geofence_label: null, created_by: 'user', source: null },
+      { user_id: userId, title: 'Pediatrician appt',    time_of_day: null,    owner: 'parent_a', paired_with: 'parent_b', status: 'pending', kids: ['kid_b'],          recurrence: 'none',    recurrence_payload: {}, geofence_lat: null, geofence_lng: null, geofence_label: null, created_by: 'user', source: null },
+    ];
+    const { error } = await supabase.from('family_tasks').insert(tasks);
+    if (error) console.warn('[seed] family_tasks insert failed', error);
+  }
+
+  // Alarms
+  const { count: aCount } = await supabase
+    .from('family_alarms').select('*', { head: true, count: 'exact' }).eq('user_id', userId);
+  if ((aCount ?? 0) === 0) {
+    const alarms = [
+      {
+        user_id: userId, cluster_name: 'School morning',
+        active_days: [1,2,3,4,5],
+        alarms: [
+          { kid: 'kid_a', time: '06:30', label: 'wake' },
+          { kid: 'kid_b', time: '06:45', label: 'wake' },
+        ],
+        voice_phrase: 'Wake the kids at 6:30 and 6:45 on weekdays',
+        master_enabled: true,
+      },
+      {
+        user_id: userId, cluster_name: 'Bedtime',
+        active_days: [0,1,2,3,4,5,6],
+        alarms: [
+          { kid: 'kid_b', time: '20:00', label: 'bath' },
+          { kid: 'kid_b', time: '20:30', label: 'lights out' },
+          { kid: 'kid_a', time: '21:00', label: 'reading' },
+          { kid: 'kid_a', time: '21:30', label: 'lights out' },
+        ],
+        voice_phrase: null,
+        master_enabled: true,
+      },
+    ];
+    const { error } = await supabase.from('family_alarms').insert(alarms);
+    if (error) console.warn('[seed] family_alarms insert failed', error);
+  }
 }
