@@ -1,17 +1,18 @@
 /* Nik — auth hook.
  *
- * Wraps Supabase auth in a tiny React hook. In local dev (no production
- * URL configured), automatically signs in as the seeded test user
- * (arjun@local.dev / localdev) so the app runs end-to-end without a
- * sign-in screen yet.
+ * Wraps Supabase auth in a tiny React hook. Exposes the current
+ * userId, a `ready` flag, and signIn/signUp/signOut helpers used by
+ * AuthScreen + the Profile sign-out button. OAuth (Google/Apple) is
+ * deferred — the helper exists but routes to the same password flow
+ * for now.
  */
 
 import { useEffect, useState } from 'react';
 import { supabase, hasSupabase } from './supabase';
 
 const DEV_USER_ID = '00000000-0000-0000-0000-000000000001';
-const DEV_EMAIL = 'arjun@local.dev';
-const DEV_PASSWORD = 'localdev';
+export const DEMO_EMAIL = 'arjun@local.dev';
+export const DEMO_PASSWORD = 'localdev';
 const isLocalSupabase = (import.meta.env.VITE_SUPABASE_URL ?? '').includes('127.0.0.1');
 
 // useAuth is called by every useOp consumer; without a module-level guard,
@@ -42,57 +43,57 @@ export function useAuth() {
     if (!hasSupabase()) return;
     let cancelled = false;
 
-    const ensureSession = async () => {
-      const { data } = await supabase.auth.getSession();
+    supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;
-      if (data.session) {
-        const id = data.session.user.id;
-        setUserId(id);
-        setReady(true);
-        if (isLocalSupabase) seedOnce(id, data.session.user.user_metadata?.name);
-        return;
-      }
-      // Local dev convenience: try sign-in, fall back to sign-up.
-      if (isLocalSupabase) {
-        let signed = await supabase.auth.signInWithPassword({
-          email: DEV_EMAIL, password: DEV_PASSWORD,
-        });
-        if (signed.error || !signed.data.session) {
-          const up = await supabase.auth.signUp({
-            email: DEV_EMAIL, password: DEV_PASSWORD,
-            options: { data: { name: 'Arjun' } },
-          });
-          if (up.data.session && up.data.user) {
-            signed = {
-              data: { user: up.data.user, session: up.data.session },
-              error: null,
-            };
-          }
-        }
-        if (cancelled) return;
-        if (signed.data.session) {
-          const id = signed.data.session.user.id;
-          setUserId(id);
-          seedOnce(id, signed.data.session.user.user_metadata?.name);
-        } else {
-          console.warn('[auth] dev sign-in/up failed', signed.error);
-          setUserId(DEV_USER_ID);
-        }
-      } else {
-        // Production: leave userId undefined → screens show empty / sign-in CTA.
-        setUserId(undefined);
-      }
+      const id = data.session?.user.id;
+      setUserId(id);
       setReady(true);
-    };
+      if (id && isLocalSupabase) seedOnce(id, data.session?.user.user_metadata?.name);
+    });
 
-    ensureSession();
     const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
-      if (!cancelled) setUserId(sess?.user.id);
+      if (cancelled) return;
+      const id = sess?.user.id;
+      setUserId(id);
+      if (id && isLocalSupabase) seedOnce(id, sess?.user.user_metadata?.name);
     });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, []);
 
   return { userId, ready };
+}
+
+/** Sign in with email + password. Falls back to sign-up if the user
+ *  doesn't exist (dev convenience — in prod we'd split these flows). */
+export async function signInWithPassword(email: string, password: string): Promise<void> {
+  if (!hasSupabase()) throw new Error('Supabase not configured');
+  const signed = await supabase.auth.signInWithPassword({ email, password });
+  if (signed.error || !signed.data.session) {
+    // Auto sign-up if user doesn't exist (only on local dev).
+    if (isLocalSupabase) {
+      const up = await supabase.auth.signUp({
+        email, password,
+        options: { data: { name: email.split('@')[0] } },
+      });
+      if (up.error) throw up.error;
+      if (!up.data.session) throw new Error('Sign-up succeeded but no session — check email confirmation.');
+      return;
+    }
+    throw signed.error ?? new Error('Sign-in failed');
+  }
+}
+
+/** Sign in as the local-dev demo user. */
+export async function signInAsDemo(): Promise<void> {
+  return signInWithPassword(DEMO_EMAIL, DEMO_PASSWORD);
+}
+
+/** Sign out of the current session. */
+export async function signOut(): Promise<void> {
+  if (!hasSupabase()) return;
+  await supabase.auth.signOut();
+  // Clear the seed-once guard so the next sign-in re-seeds for the new user.
+  seededUsers.clear();
 }
 
 async function seedSampleHabitsIfEmpty(userId: string) {

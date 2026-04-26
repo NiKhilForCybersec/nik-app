@@ -35,8 +35,8 @@ _React hooks, helpers, the LLM router, the Supabase client._
 
 | File | Exports |
 |---|---|
-| [web/src/lib/auth.ts](../web/src/lib/auth.ts) | `useAuth` |
-| _Wraps Supabase auth in a tiny React hook. In local dev (no production_ | |
+| [web/src/lib/auth.ts](../web/src/lib/auth.ts) | `DEMO_EMAIL`, `DEMO_PASSWORD`, `signInAsDemo`, `signInWithPassword`, `signOut`, `useAuth` |
+| _Wraps Supabase auth in a tiny React hook. Exposes the current_ | |
 | [web/src/lib/commands.ts](../web/src/lib/commands.ts) | `CommandContext`, `CommandDef`, `defineCommand` |
 | _Same shape as operations.ts but for things the AI can do TO the UI:_ | |
 | [web/src/lib/llm/anthropic.ts](../web/src/lib/llm/anthropic.ts) | `AnthropicProvider` |
@@ -80,6 +80,9 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 
 | File | Exports |
 |---|---|
+| [web/src/screens/AuthScreen.manifest.ts](../web/src/screens/AuthScreen.manifest.ts) | `manifest` |
+| [web/src/screens/AuthScreen.tsx](../web/src/screens/AuthScreen.tsx) | `*default*`, `AuthScreen` |
+| _Email + password for now (test/test enough in dev). OAuth buttons_ | |
 | [web/src/screens/BriefScreen.manifest.ts](../web/src/screens/BriefScreen.manifest.ts) | `manifest` |
 | [web/src/screens/BriefScreen.tsx](../web/src/screens/BriefScreen.tsx) | `*default*`, `BriefScreen` |
 | _Reads ingested events from `events` table (movie tickets, calendar_ | |
@@ -200,6 +203,6 @@ _Locale-neutral seed shapes used by un-migrated screens._
 
 ---
 
-**Stats**: 86 files, 245 exports.
+**Stats**: 88 files, 253 exports.
 
-**Last regenerated**: 2026-04-26T02:19:24.607Z.
+**Last regenerated**: 2026-04-26T02:46:18.578Z.

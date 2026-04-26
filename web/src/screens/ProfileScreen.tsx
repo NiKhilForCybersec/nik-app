@@ -6,6 +6,7 @@ import { I } from '../components/icons';
 import { Avatar, Chip, HUDCorner, XPBar } from '../components/primitives';
 import { useOp } from '../lib/useOp';
 import { profile as profileOps } from '../contracts/profile';
+import { signOut } from '../lib/auth';
 
 export const PROFILE_PRESETS: Array<Record<string, any>> = [
   { id: 'obsidian', name: 'Obsidian Youth', subtitle: 'Solo Leveling · HUD · electric', hue: 220, mode: 'dark', intensity: 'full', tag: 'Default' },
@@ -269,7 +270,9 @@ export default function ProfileScreen({ onNav: _onNav, state, setState }: Screen
             <Chip tone="default" size="md">Privacy</Chip>
             <Chip tone="default" size="md">Terms</Chip>
             <Chip tone="default" size="md">Reset Nik</Chip>
-            <Chip tone="danger" size="md">Sign out</Chip>
+            <div onClick={() => { void signOut(); }} className="tap" style={{ display: 'inline-flex' }}>
+              <Chip tone="danger" size="md">Sign out</Chip>
+            </div>
           </div>
         </div>
       )}

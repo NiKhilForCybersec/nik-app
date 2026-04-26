@@ -20,6 +20,7 @@ const DEMO_NOTIF = {
   time: 'now',
 } as const;
 
+import AuthScreen from './screens/AuthScreen';
 import HomeScreen from './screens/HomeScreen';
 import ChatScreen from './screens/ChatScreen';
 import HabitsScreen from './screens/HabitsScreen';
@@ -80,7 +81,7 @@ type PersistedPrefs = Pick<AppState, 'theme' | 'intensity' | 'density' | 'fontPa
 const PREFS_KEY = 'nik:prefs:v1';
 
 export default function App() {
-  useAuth();      // Triggers Supabase sign-in/up on mount in dev.
+  const { userId, ready } = useAuth();
   const [state, setState] = useState<AppState>(DEFAULTS);
   const [hydrated, setHydrated] = useState(false);
 
@@ -216,22 +217,22 @@ export default function App() {
           overflowX: 'hidden',
         }}
       >
-        {renderScreen()}
+        {!ready ? null : !userId ? <AuthScreen /> : renderScreen()}
       </div>
-      {state.notifVisible && (
+      {userId && state.notifVisible && (
         <Toast
           notif={DEMO_NOTIF}
           onDismiss={() => setState((x) => ({ ...x, notifVisible: false }))}
         />
       )}
-      {state.screen !== 'chat' && (
+      {userId && state.screen !== 'chat' && (
         <TabBar
           active={state.screen}
           onNav={(id: string) => onNav(id as ScreenId)}
           onVoice={() => setState((x) => ({ ...x, screen: 'chat', listening: true }))}
         />
       )}
-      {state.listening && state.screen !== 'chat' && <VoiceOverlay onClose={closeVoice} />}
+      {userId && state.listening && state.screen !== 'chat' && <VoiceOverlay onClose={closeVoice} />}
     </div>
     </CommandBusProvider>
     </QueryClientProvider>
