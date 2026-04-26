@@ -205,41 +205,79 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
       style={{ padding: '8px 16px 100px', color: 'var(--fg)' }}
     >
       {/* Greeting + live location */}
-      <motion.div variants={itemV} style={{ paddingTop: 8, marginBottom: 18 }}>
-        <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
-            style={{ width: 6, height: 6, borderRadius: '50%', background: 'oklch(0.78 0.15 150)', boxShadow: '0 0 6px oklch(0.78 0.15 150)' }}
-          />
-          {today.toUpperCase()} · {weather}
+      <motion.div variants={itemV} style={{ paddingTop: 8, marginBottom: 18, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-mono)', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <motion.span
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
+              style={{ width: 6, height: 6, borderRadius: '50%', background: 'oklch(0.78 0.15 150)', boxShadow: '0 0 6px oklch(0.78 0.15 150)' }}
+            />
+            {today.toUpperCase()} · {weather}
+          </div>
+          <motion.div
+            className="display"
+            variants={reduce ? undefined : wordContainer}
+            initial={reduce ? false : 'hidden'}
+            animate={reduce ? undefined : 'show'}
+            style={{ fontSize: 30, fontWeight: 400, lineHeight: 1.15, letterSpacing: -0.5, display: 'flex', flexWrap: 'wrap', gap: '0 0.32em' }}
+          >
+            {greetWords.map((w, i) => {
+              const isName = i === greetWords.length - 1 && greetWords.length > 1;
+              return (
+                <motion.span
+                  key={i + w}
+                  variants={reduce ? undefined : wordItem}
+                  style={isName ? {
+                    fontWeight: 600,
+                    background: 'linear-gradient(90deg, oklch(0.9 0.12 var(--hue)), oklch(0.75 0.18 calc(var(--hue) + 60)))',
+                    WebkitBackgroundClip: 'text',
+                    color: 'transparent',
+                  } : undefined}
+                >
+                  {w}
+                </motion.span>
+              );
+            })}
+          </motion.div>
         </div>
-        <motion.div
-          className="display"
-          variants={reduce ? undefined : wordContainer}
-          initial={reduce ? false : 'hidden'}
-          animate={reduce ? undefined : 'show'}
-          style={{ fontSize: 30, fontWeight: 400, lineHeight: 1.15, letterSpacing: -0.5, display: 'flex', flexWrap: 'wrap', gap: '0 0.32em' }}
+
+        {/* Profile avatar — top-right of greeting. Tap → /profile.
+            Premium pill: gradient ring · initial · subtle level badge. */}
+        <motion.button
+          whileHover={reduce ? undefined : { scale: 1.05 }}
+          whileTap={reduce ? undefined : { scale: 0.95 }}
+          onClick={() => onNav('profile')}
+          aria-label="Open profile"
+          className="tap"
+          style={{
+            position: 'relative', flexShrink: 0, marginTop: 4,
+            width: 44, height: 44, borderRadius: '50%',
+            background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))',
+            border: '1.5px solid var(--bg)',
+            boxShadow: '0 0 0 1.5px oklch(0.78 0.16 var(--hue) / 0.45), 0 6px 14px -4px oklch(0.78 0.16 var(--hue) / 0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', padding: 0,
+          }}
         >
-          {greetWords.map((w, i) => {
-            const isName = i === greetWords.length - 1 && greetWords.length > 1;
-            return (
-              <motion.span
-                key={i + w}
-                variants={reduce ? undefined : wordItem}
-                style={isName ? {
-                  fontWeight: 600,
-                  background: 'linear-gradient(90deg, oklch(0.9 0.12 var(--hue)), oklch(0.75 0.18 calc(var(--hue) + 60)))',
-                  WebkitBackgroundClip: 'text',
-                  color: 'transparent',
-                } : undefined}
-              >
-                {w}
-              </motion.span>
-            );
-          })}
-        </motion.div>
+          <span className="display" style={{ fontSize: 18, fontWeight: 600, color: '#06060a', letterSpacing: -0.5 }}>
+            {(u.name || 'F').charAt(0).toUpperCase()}
+          </span>
+          {u.level > 1 && (
+            <span style={{
+              position: 'absolute', bottom: -4, right: -4,
+              minWidth: 18, height: 18, padding: '0 4px', borderRadius: 9,
+              background: 'oklch(0.20 0.04 260)',
+              border: '1.5px solid var(--bg)',
+              fontSize: 9, fontWeight: 600, color: 'oklch(0.92 0.14 var(--hue))',
+              fontFamily: 'var(--font-mono)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {u.level}
+            </span>
+          )}
+        </motion.button>
       </motion.div>
 
       {/* HUD card — level & stats */}
