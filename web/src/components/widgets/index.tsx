@@ -1137,6 +1137,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     recommendedSizes: [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 2, h: 2 }],
     configSchema: noConfig,
     Component: StreakCounter,
+    navTarget: 'profile',
   },
   next_quest: {
     label: 'Next quest',

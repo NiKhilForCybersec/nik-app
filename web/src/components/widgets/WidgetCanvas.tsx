@@ -23,6 +23,45 @@ import { I } from '../icons';
 import { WIDGET_TYPES, type WidgetSize, type WidgetUnit } from './index';
 import type { Widget, WidgetType } from '../../contracts/widgets';
 
+// Kind → screen id, used by list_preview widgets so each pre-configured
+// preset (Reading, Bills, Plants, etc.) navigates to its own screen on
+// tap. Keep in sync with the ItemKind enum in contracts/items.ts.
+const KIND_TO_SCREEN: Record<string, string> = {
+  // Health
+  nutrition: 'nutrition', symptoms: 'symptoms', doctor: 'doctors',
+  // Mind
+  reading: 'reading', learning: 'learning', gratitude: 'gratitude',
+  goal: 'goals', reflection: 'reflection', language_deck: 'languages',
+  // People
+  friend: 'friends', pet: 'pets', birthday: 'birthdays', contact: 'network',
+  // Money
+  bill: 'bills', subscription: 'subscriptions', investment: 'investments',
+  receipt: 'receipts',
+  // Home & errands
+  shopping: 'shopping', recipe: 'recipes', home_maintenance: 'maintenance',
+  plant: 'plants', wardrobe: 'wardrobe',
+  // Memory
+  trip: 'travel', achievement: 'achievements', bucket_list: 'bucketlist',
+  time_capsule: 'timecapsule', photo: 'photos',
+  // Work
+  project: 'projects', side_project: 'sideprojects', career_note: 'career',
+};
+
+/** Resolve the screen a widget should navigate to when tapped. */
+export function widgetNavTarget(w: Widget): string | undefined {
+  const def = WIDGET_TYPES[w.widget_type as WidgetType];
+  if (!def) return undefined;
+  // list_preview is a generic widget — its navigation depends on the
+  // configured `kind`. Reading list goes to /reading, Bills to /bills,
+  // etc. Falls back to the more screen if the kind isn't mapped yet.
+  if (w.widget_type === 'list_preview') {
+    const kind = (w.config as { kind?: string })?.kind;
+    if (kind && KIND_TO_SCREEN[kind]) return KIND_TO_SCREEN[kind];
+    return 'more';
+  }
+  return def.navTarget;
+}
+
 export const CANVAS_GRID_STYLE: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: '1fr 1fr',

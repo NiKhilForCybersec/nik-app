@@ -17,9 +17,7 @@ import { circle as circleOps } from '../contracts/circle';
 import { diary as diaryOps } from '../contracts/diary';
 import { events as eventsOps } from '../contracts/events';
 import { widgets as widgetsOps } from '../contracts/widgets';
-import { ReadOnlyCanvas } from '../components/widgets/WidgetCanvas';
-import { WIDGET_TYPES } from '../components/widgets';
-import type { WidgetType } from '../contracts/widgets';
+import { ReadOnlyCanvas, widgetNavTarget } from '../components/widgets/WidgetCanvas';
 import type { ScreenId } from '../types/app-state';
 
 // Map habit-name keywords to dedicated detail screens. When a habit
@@ -561,8 +559,8 @@ const DynamicWidgetCanvas: React.FC<{ onNav: (s: ScreenId) => void }> = ({ onNav
       <ReadOnlyCanvas
         widgets={widgets}
         onOpen={(w) => {
-          const def = WIDGET_TYPES[w.widget_type as WidgetType];
-          if (def?.navTarget) onNav(def.navTarget as ScreenId);
+          const target = widgetNavTarget(w);
+          if (target) onNav(target as ScreenId);
         }}
       />
     </section>
