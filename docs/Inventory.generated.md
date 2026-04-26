@@ -93,6 +93,8 @@ _Primitives, shell, sheets, icons._
 | [web/src/components/sheets/MedsSheets.tsx](../web/src/components/sheets/MedsSheets.tsx) | `AddMedSheet`, `AiMedChatSheet`, `MedDetailSheet` |
 | _Ported from www/screens/meds-sheets.jsx_ | |
 | [web/src/components/shell.tsx](../web/src/components/shell.tsx) | `EmptyState`, `EmptyStateProps`, `OfflineBanner`, `OfflineBannerProps`, `SkeletonScreen`, `SkeletonScreenProps`, `TabBar`, `TabBarProps`, `VoiceOverlay`, `VoiceOverlayProps` |
+| [web/src/components/widgets/index.tsx](../web/src/components/widgets/index.tsx) | `WIDGET_TYPES`, `WidgetDef`, `WidgetRenderProps`, `WidgetShell`, `WidgetSize`, `getWidgetDef` |
+| _One entry per WidgetType in the contracts/widgets.ts enum. Each_ | |
 
 ## Screens
 
@@ -280,6 +282,6 @@ _Shared type-only modules._
 
 ---
 
-**Stats**: 162 files, 394 exports.
+**Stats**: 163 files, 400 exports.
 
-**Last regenerated**: 2026-04-26T08:34:32.844Z.
+**Last regenerated**: 2026-04-26T08:50:13.279Z.

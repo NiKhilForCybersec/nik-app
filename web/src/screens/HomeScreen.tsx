@@ -6,7 +6,7 @@ import type { ScreenProps } from '../App';
 import { getThemeVocab } from '../theme/themes';
 import { I } from '../components/icons';
 import { XPBar, Avatar, Chip, VoiceOrb, HUDCorner } from '../components/primitives';
-import { useOp } from '../lib/useOp';
+import { useOp, useOpMutation } from '../lib/useOp';
 import { profile as profileOps } from '../contracts/profile';
 import { habits as habitsOps } from '../contracts/habits';
 import { quests as questsOps } from '../contracts/quests';
@@ -15,6 +15,9 @@ import { hydration as hydrationOps } from '../contracts/hydration';
 import { circle as circleOps } from '../contracts/circle';
 import { diary as diaryOps } from '../contracts/diary';
 import { events as eventsOps } from '../contracts/events';
+import { widgets as widgetsOps } from '../contracts/widgets';
+import { WIDGET_TYPES } from '../components/widgets';
+import type { WidgetType } from '../contracts/widgets';
 import type { ScreenId } from '../types/app-state';
 
 // Map habit-name keywords to dedicated detail screens. When a habit
@@ -286,6 +289,12 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
           </div>
         </motion.div>
       )}
+
+      {/* DYNAMIC WIDGET CANVAS — driven by home_widgets table.
+          Renders the user's chosen widgets in their chosen order/size.
+          On first visit (empty list) we auto-seed defaults so Home is
+          never blank. Configurable via WidgetsScreen (Phase 2). */}
+      <DynamicWidgetCanvas onNav={onNav} />
 
       {/* HABITS — promoted bento section */}
       <motion.section variants={itemV} style={{ marginBottom: 24 }}>
@@ -841,3 +850,65 @@ export const LiveStat: React.FC<LiveStatProps> = ({ label, value, unit, target, 
     {target && <div style={{ fontSize: 8, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginTop: 1 }}>/ {target}</div>}
   </div>
 );
+
+// ── Dynamic widget canvas ──────────────────────────────────
+//
+// Reads home_widgets via useOp; if empty on first load, auto-resets
+// to the default starter set so Home is never blank for new users.
+// Each row is one row in the DB; reorder / resize / config-edit live
+// in WidgetsScreen (Phase 2).
+
+const DynamicWidgetCanvas: React.FC<{ onNav: (s: ScreenId) => void }> = ({ onNav }) => {
+  const { data: widgets = [], isLoading } = useOp(widgetsOps.list, {});
+  const reset = useOpMutation(widgetsOps.reset);
+  const [hasReset, setHasReset] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!isLoading && widgets.length === 0 && !hasReset) {
+      setHasReset(true);
+      void reset.mutateAsync({});
+    }
+  }, [isLoading, widgets.length, hasReset, reset]);
+
+  if (isLoading || widgets.length === 0) return null;
+
+  return (
+    <section style={{ marginBottom: 22 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div>
+          <div style={{ fontSize: 10, color: 'var(--fg-3)', letterSpacing: 2, fontFamily: 'var(--font-mono)' }}>
+            YOUR CANVAS · {widgets.length} WIDGETS
+          </div>
+          <div className="display" style={{ fontSize: 16, fontWeight: 500, color: 'var(--fg-2)', marginTop: 2 }}>
+            Live snapshot.
+          </div>
+        </div>
+        <div onClick={() => onNav('widgets')} className="tap" style={{
+          fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1,
+          display: 'flex', alignItems: 'center', gap: 4,
+        }}>
+          EDIT <I.chevR size={12} stroke="var(--fg-3)" />
+        </div>
+      </div>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 8,
+      }}>
+        {widgets.map((w) => {
+          const def = WIDGET_TYPES[w.widget_type as WidgetType];
+          if (!def) return null;
+          const Render = def.Component;
+          return (
+            <Render
+              key={w.id}
+              size={{ w: w.w as 1 | 2, h: w.h as 1 | 2 }}
+              config={w.config}
+              onOpen={def.navTarget ? () => onNav(def.navTarget as ScreenId) : undefined}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+};
