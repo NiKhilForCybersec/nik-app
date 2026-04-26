@@ -230,6 +230,156 @@ export const circle = {
     },
   }),
 
+  // ── Multi-tenant invite flow ────────────────────────────────
+  //
+  // The owner creates an invite (returns token + 6-digit code), the
+  // invitee opens the app and pastes/scans it. acceptInvite() runs as
+  // a SECURITY DEFINER RPC so it can write into the inviter's
+  // circle_members under RLS. Both sides end up with reciprocal rows.
+
+  createInvite: defineOp({
+    name: 'circle.createInvite',
+    description: 'Create a new invite to add another real user to your family circle. Returns a token (for QR / deep-link) and a 6-digit code (for SMS / voice). Default expiry 7 days, single-use.',
+    kind: 'mutation',
+    permissions: ['circle.write'],
+    tags: ['circle', 'family', 'invite'],
+    input: z.object({
+      label: z.string().max(80).default(''),
+      defaultShareTier: ShareTier.default('family'),
+      maxUses: z.number().int().min(1).max(10).default(1),
+      expiresInDays: z.number().int().min(1).max(30).default(7),
+    }).strict(),
+    output: z.object({
+      id: z.string().uuid(),
+      token: z.string(),
+      code: z.string(),
+      qrPayload: z.string(),
+      expiresAt: z.string(),
+    }),
+    handler: async ({ sb, userId }, input) => {
+      if (!userId) throw new Error('Not signed in');
+      // Generate URL-safe token (32 chars) + 6-digit code.
+      const bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      const token = btoa(String.fromCharCode(...bytes))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+      const code = String(Math.floor(100000 + Math.random() * 900000));
+      const expiresAt = new Date(Date.now() + input.expiresInDays * 86_400_000).toISOString();
+      const { data, error } = await sb
+        .from('circle_invites')
+        .insert({
+          owner_user_id: userId,
+          token,
+          code,
+          label: input.label,
+          default_share_tier: input.defaultShareTier,
+          max_uses: input.maxUses,
+          expires_at: expiresAt,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      // QR payload is a deep-link the mobile app handles.
+      const qrPayload = `nik://invite/${token}`;
+      return {
+        id: data.id as string,
+        token,
+        code,
+        qrPayload,
+        expiresAt,
+      };
+    },
+  }),
+
+  listInvites: defineOp({
+    name: 'circle.listInvites',
+    description: 'List your active (non-expired, non-fully-consumed) circle invites — for the "show pending invites" UI on CircleScreen.',
+    kind: 'query',
+    permissions: ['circle.read'],
+    tags: ['circle', 'family', 'invite'],
+    input: z.object({}).strict(),
+    output: z.array(z.object({
+      id: z.string().uuid(),
+      token: z.string(),
+      code: z.string(),
+      label: z.string(),
+      max_uses: z.number().int(),
+      used_count: z.number().int(),
+      expires_at: z.string(),
+      created_at: z.string(),
+    })),
+    handler: async ({ sb, userId }) => {
+      if (!userId) return [];
+      const { data, error } = await sb
+        .from('circle_invites')
+        .select('id, token, code, label, max_uses, used_count, expires_at, created_at')
+        .eq('owner_user_id', userId)
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Array<{
+        id: string; token: string; code: string; label: string;
+        max_uses: number; used_count: number; expires_at: string; created_at: string;
+      }>;
+    },
+  }),
+
+  revokeInvite: defineOp({
+    name: 'circle.revokeInvite',
+    description: 'Revoke a pending circle invite. Use when the user changes their mind or the code leaks.',
+    kind: 'mutation',
+    mutability: 'confirm',
+    permissions: ['circle.write'],
+    tags: ['circle', 'family', 'invite'],
+    input: z.object({ id: z.string().uuid() }).strict(),
+    output: z.object({ revoked: z.boolean() }),
+    handler: async ({ sb, userId }, { id }) => {
+      if (!userId) throw new Error('Not signed in');
+      const { error } = await sb
+        .from('circle_invites')
+        .delete()
+        .eq('id', id)
+        .eq('owner_user_id', userId);
+      if (error) throw error;
+      return { revoked: true };
+    },
+  }),
+
+  acceptInvite: defineOp({
+    name: 'circle.acceptInvite',
+    description: 'Accept an invite to join someone else\'s family circle. Pass either the token (from a QR scan) or the 6-digit code. Inserts reciprocal circle_members rows on both sides.',
+    kind: 'mutation',
+    permissions: ['circle.write'],
+    tags: ['circle', 'family', 'invite'],
+    input: z.object({
+      token: z.string().optional(),
+      code: z.string().regex(/^\d{6}$/).optional(),
+      myLabel: z.string().max(80).optional(),
+    }).strict().refine((v) => v.token || v.code, { message: 'token or code required' }),
+    output: z.object({
+      ownerUserId: z.string().uuid(),
+      ownerName: z.string(),
+      memberMemberId: z.string(),
+    }),
+    handler: async ({ sb, userId }, input) => {
+      if (!userId) throw new Error('Not signed in');
+      const { data, error } = await sb.rpc('accept_circle_invite', {
+        in_token: input.token ?? null,
+        in_code: input.code ?? null,
+        in_invitee_label: input.myLabel ?? null,
+      });
+      if (error) throw error;
+      const r = data as { owner_user_id: string; owner_name: string; member_member_id: string };
+      return {
+        ownerUserId: r.owner_user_id,
+        ownerName: r.owner_name,
+        memberMemberId: r.member_member_id,
+      };
+    },
+  }),
+
   remove: defineOp({
     name: 'circle.remove',
     description: 'Remove a circle member. Cannot remove "self". Destructive — confirm before execution.',

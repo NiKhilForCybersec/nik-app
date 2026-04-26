@@ -128,11 +128,19 @@ export default function CircleScreen({ onNav, state, setState }: ScreenProps) {
   const [showPrivacy, setShowPrivacy] = React.useState(false);
   const [showLog, setShowLog] = React.useState(false);
   const [showAdd, setShowAdd] = React.useState(false);
+  const [showInvite, setShowInvite] = React.useState(false);
 
   const addMember = useOpMutation(circleOps.add);
   const removeMember = useOpMutation(circleOps.remove);
+  const createInvite = useOpMutation(circleOps.createInvite);
+  const acceptInvite = useOpMutation(circleOps.acceptInvite);
+  const revokeInvite = useOpMutation(circleOps.revokeInvite);
+  const { data: pendingInvites = [] } = useOp(circleOps.listInvites, {});
   const qc = useQueryClient();
-  const refresh = () => qc.invalidateQueries({ queryKey: ['circle.list'] });
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ['circle.list'] });
+    void qc.invalidateQueries({ queryKey: ['circle.listInvites'] });
+  };
 
   const handleRemove = async (memberId: string, name: string) => {
     if (memberId === 'self') return;
@@ -162,17 +170,27 @@ export default function CircleScreen({ onNav, state, setState }: ScreenProps) {
             how they're doing — or what you've chosen to let them see about you.
           </div>
         </div>
-        <div onClick={() => setShowAdd(true)} className="tap" title="Add a circle member" style={{
-          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-          background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 0 12px oklch(0.78 0.16 var(--hue) / 0.4)',
-        }}>
-          <I.plus size={20} stroke="#06060a" sw={2.4} />
+        <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+          <div onClick={() => setShowInvite(true)} className="tap" title="Invite a real user (QR + code)" style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: 'oklch(0.78 0.16 var(--hue) / 0.15)',
+            border: '1px solid oklch(0.78 0.16 var(--hue) / 0.4)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <I.grid size={18} stroke="oklch(0.92 0.14 var(--hue))" sw={2} />
+          </div>
+          <div onClick={() => setShowAdd(true)} className="tap" title="Add a member directly (no invite)" style={{
+            width: 44, height: 44, borderRadius: 12,
+            background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 0 12px oklch(0.78 0.16 var(--hue) / 0.4)',
+          }}>
+            <I.plus size={20} stroke="#06060a" sw={2.4} />
+          </div>
         </div>
       </div>
 
-      {/* Add-member sheet (minimal) */}
+      {/* Add-member sheet (manual entry, no invite) */}
       {showAdd && (
         <AddMemberSheet
           onClose={() => setShowAdd(false)}
@@ -184,6 +202,33 @@ export default function CircleScreen({ onNav, state, setState }: ScreenProps) {
             } catch (e) {
               alert(`Couldn't add: ${(e as Error).message}`);
             }
+          }}
+        />
+      )}
+
+      {/* Invite sheet — create + accept tabs */}
+      {showInvite && (
+        <InviteSheet
+          onClose={() => setShowInvite(false)}
+          createInvite={async (label) => {
+            const r = await createInvite.mutateAsync({ label });
+            void refresh();
+            return r;
+          }}
+          acceptInvite={async (codeOrToken, myLabel) => {
+            const isCode = /^\d{6}$/.test(codeOrToken.trim());
+            const input = isCode
+              ? { code: codeOrToken.trim(), myLabel }
+              : { token: codeOrToken.trim(), myLabel };
+            const r = await acceptInvite.mutateAsync(input);
+            void refresh();
+            return r;
+          }}
+          pending={pendingInvites}
+          onRevoke={async (id) => {
+            if (!window.confirm('Revoke this invite?')) return;
+            await revokeInvite.mutateAsync({ id });
+            void refresh();
           }}
         />
       )}
@@ -233,7 +278,7 @@ export default function CircleScreen({ onNav, state, setState }: ScreenProps) {
             const isMe = m.id === me;
             const canLoc = canCircleView(me, m.id, 'location', sharing);
             const loc = canLoc
-              ? (m.location as string).split('·')[0].trim()
+              ? (m.location ? m.location.split('·')[0].trim() : 'No location')
               : 'Private';
             return (
               <div
@@ -1047,6 +1092,194 @@ const inputStyle: React.CSSProperties = {
   width: '100%', padding: '8px 10px', borderRadius: 8,
   background: 'oklch(1 0 0 / 0.04)', border: '1px solid var(--hairline)',
   color: 'var(--fg)', fontSize: 13, outline: 'none', fontFamily: 'var(--font-body)',
+};
+
+// ── Invite sheet — create + accept tabs ──────────────────────
+
+type Pending = { id: string; token: string; code: string; label: string; max_uses: number; used_count: number; expires_at: string };
+
+const InviteSheet: React.FC<{
+  onClose: () => void;
+  createInvite: (label: string) => Promise<{ id: string; token: string; code: string; qrPayload: string; expiresAt: string }>;
+  acceptInvite: (codeOrToken: string, myLabel: string) => Promise<{ ownerName: string }>;
+  pending: Pending[];
+  onRevoke: (id: string) => Promise<void>;
+}> = ({ onClose, createInvite, acceptInvite, pending, onRevoke }) => {
+  const [tab, setTab] = React.useState<'create' | 'accept'>('create');
+  const [label, setLabel] = React.useState('');
+  const [busy, setBusy] = React.useState(false);
+  const [created, setCreated] = React.useState<Awaited<ReturnType<typeof createInvite>> | null>(null);
+  const [acceptInput, setAcceptInput] = React.useState('');
+  const [myLabel, setMyLabel] = React.useState('');
+  const [acceptResult, setAcceptResult] = React.useState<string | null>(null);
+  const [err, setErr] = React.useState<string | null>(null);
+
+  const onCreate = async () => {
+    setBusy(true); setErr(null);
+    try {
+      const r = await createInvite(label.trim());
+      setCreated(r);
+    } catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  };
+  const onAccept = async () => {
+    if (!acceptInput.trim()) return;
+    setBusy(true); setErr(null);
+    try {
+      const r = await acceptInvite(acceptInput.trim(), myLabel.trim());
+      setAcceptResult(`Joined ${r.ownerName}'s circle. They've been added to yours too.`);
+      setAcceptInput('');
+    } catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  };
+  const copy = (s: string) => navigator.clipboard?.writeText(s).catch(() => {});
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, background: 'oklch(0 0 0 / 0.5)',
+      backdropFilter: 'blur(8px)', zIndex: 100,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} className="glass scanlines" style={{
+        padding: 22, width: '100%', maxWidth: 420, position: 'relative', overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto',
+      }}>
+        <HUDCorner position="tl" /><HUDCorner position="tr" /><HUDCorner position="bl" /><HUDCorner position="br" />
+        <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)' }}>FAMILY · INVITE</div>
+        <div className="display" style={{ fontSize: 22, fontWeight: 500, marginTop: 4, marginBottom: 14 }}>
+          Connect with a real person
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 16, padding: 4, background: 'oklch(1 0 0 / 0.04)', borderRadius: 10, border: '1px solid var(--hairline)' }}>
+          {(['create', 'accept'] as const).map((t) => (
+            <div key={t} onClick={() => setTab(t)} className="tap" style={{
+              flex: 1, padding: '8px 10px', borderRadius: 7, textAlign: 'center', fontSize: 12, fontWeight: 500,
+              background: tab === t ? 'oklch(0.78 0.16 var(--hue) / 0.18)' : 'transparent',
+              color: tab === t ? 'oklch(0.94 0.14 var(--hue))' : 'var(--fg-3)',
+              fontFamily: 'var(--font-mono)', letterSpacing: 1, cursor: 'pointer',
+            }}>{t === 'create' ? 'CREATE INVITE' : 'ENTER CODE'}</div>
+          ))}
+        </div>
+
+        {tab === 'create' && !created && (
+          <>
+            <Field label="Label (optional — what to call them)">
+              <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Mom, Sam, Roommate" autoFocus style={inputStyle} />
+            </Field>
+            <button onClick={() => !busy && void onCreate()} disabled={busy} className="tap" style={{
+              width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+              background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))',
+              color: '#06060a', border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
+            }}>{busy ? 'Generating…' : 'Generate invite'}</button>
+          </>
+        )}
+
+        {tab === 'create' && created && (
+          <div>
+            <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
+              SHARE THIS CODE
+            </div>
+            <div style={{
+              padding: 18, borderRadius: 14, textAlign: 'center',
+              background: 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue) / 0.20), oklch(0.55 0.22 calc(var(--hue) + 40) / 0.10))',
+              border: '1px solid oklch(0.78 0.16 var(--hue) / 0.4)',
+              marginBottom: 12,
+            }}>
+              <div className="display" style={{
+                fontSize: 38, fontWeight: 600, letterSpacing: 6, color: 'var(--fg-1)',
+                fontVariantNumeric: 'tabular-nums', fontFamily: 'var(--font-mono)',
+              }}>{created.code}</div>
+              <div style={{ fontSize: 10, color: 'var(--fg-3)', marginTop: 6, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
+                EXPIRES {new Date(created.expiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }).toUpperCase()}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <button onClick={() => copy(created.code)} className="tap" style={secondaryBtn}>Copy code</button>
+              <button onClick={() => copy(created.qrPayload)} className="tap" style={secondaryBtn}>Copy link</button>
+            </div>
+
+            <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.5, marginBottom: 14 }}>
+              Send the code over text or read it out loud. They open Nik → Circle → Invite → Enter code.
+              Once they accept, you'll both see each other in your circles.
+            </div>
+
+            <button onClick={() => { setCreated(null); setLabel(''); }} className="tap" style={secondaryBtn}>Create another</button>
+          </div>
+        )}
+
+        {tab === 'accept' && (
+          <>
+            <Field label="6-digit code or invite link">
+              <input value={acceptInput} onChange={(e) => setAcceptInput(e.target.value)} placeholder="123456 or nik://invite/…" autoFocus style={inputStyle} />
+            </Field>
+            <Field label="What should they call you? (optional)">
+              <input value={myLabel} onChange={(e) => setMyLabel(e.target.value)} placeholder="Your name" style={inputStyle} />
+            </Field>
+            <button onClick={() => !busy && void onAccept()} disabled={busy || !acceptInput.trim()} className="tap" style={{
+              width: '100%', padding: '10px 12px', borderRadius: 10, fontSize: 13, fontWeight: 600,
+              background: acceptInput.trim() && !busy
+                ? 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))'
+                : 'oklch(1 0 0 / 0.04)',
+              color: acceptInput.trim() && !busy ? '#06060a' : 'var(--fg-3)',
+              border: 'none', cursor: busy ? 'wait' : 'pointer', opacity: busy ? 0.6 : 1,
+            }}>{busy ? 'Joining…' : 'Join circle'}</button>
+            {acceptResult && (
+              <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: 'oklch(0.78 0.16 145 / 0.12)', border: '1px solid oklch(0.78 0.16 145 / 0.35)', fontSize: 12, color: 'oklch(0.92 0.14 145)' }}>
+                ✓ {acceptResult}
+              </div>
+            )}
+          </>
+        )}
+
+        {err && (
+          <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: 'oklch(0.78 0.18 25 / 0.12)', border: '1px solid oklch(0.78 0.18 25 / 0.35)', fontSize: 12, color: 'oklch(0.92 0.14 25)' }}>
+            {err}
+          </div>
+        )}
+
+        {/* Pending invites strip */}
+        {pending.length > 0 && (
+          <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px solid var(--hairline)' }}>
+            <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 8 }}>
+              YOUR PENDING INVITES · {pending.length}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {pending.map((inv) => (
+                <div key={inv.id} className="glass" style={{ padding: 10, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {inv.label || 'Untitled'}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
+                      {inv.code} · USED {inv.used_count}/{inv.max_uses}
+                    </div>
+                  </div>
+                  <button onClick={() => copy(inv.code)} className="tap" style={miniSecondaryBtn}>COPY</button>
+                  <button onClick={() => void onRevoke(inv.id)} className="tap" style={{ ...miniSecondaryBtn, color: 'oklch(0.85 0.18 25)' }}>×</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div onClick={onClose} className="tap" style={{
+          marginTop: 14, padding: '10px 12px', borderRadius: 10, textAlign: 'center', fontSize: 12,
+          background: 'oklch(1 0 0 / 0.04)', border: '1px solid var(--hairline)', color: 'var(--fg-3)', cursor: 'pointer',
+        }}>Close</div>
+      </div>
+    </div>
+  );
+};
+
+const secondaryBtn: React.CSSProperties = {
+  flex: 1, padding: '8px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+  background: 'oklch(1 0 0 / 0.05)', border: '1px solid var(--hairline-strong)', color: 'var(--fg-1)', cursor: 'pointer',
+};
+
+const miniSecondaryBtn: React.CSSProperties = {
+  padding: '4px 8px', borderRadius: 6, fontSize: 9, fontWeight: 600, fontFamily: 'var(--font-mono)', letterSpacing: 1,
+  background: 'oklch(1 0 0 / 0.05)', border: '1px solid var(--hairline-strong)', color: 'var(--fg-2)', cursor: 'pointer',
 };
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
