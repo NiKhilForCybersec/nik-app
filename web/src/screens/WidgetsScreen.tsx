@@ -344,7 +344,7 @@ export default function WidgetsScreen(_p: ScreenProps) {
           <div
             onClick={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }}
             style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14,
+              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14,
               // `dense` packing: when a wide/tall widget would leave a
               // 1×1 hole earlier in the canvas, the next 1×1 widget
               // backfills that hole instead of leaving empty space.
@@ -421,34 +421,28 @@ export default function WidgetsScreen(_p: ScreenProps) {
                 {def?.label ?? selected.widget_type}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 22px)', gap: 5 }}>
-              {([1, 2, 3] as const).flatMap((sh) => ([1, 2, 3] as const).map((sw) => {
+            {/* 2 cols × 3 rows = 6 cells. Mobile-first: 3 columns are
+                too cramped on a phone, so width is capped at 2; height
+                goes up to 3 for tall widgets. Every cell is fully
+                recommended (no greying needed). */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 26px)', gap: 5 }}>
+              {([1, 2, 3] as const).flatMap((sh) => ([1, 2] as const).map((sw) => {
                 const active = sw === cw && sh === ch;
-                // 3×3 is greyed (still tappable) — fills the whole
-                // canvas viewport in a single widget which is rarely
-                // useful. Every other shape (1×1 through 3×2 and the
-                // 1×3/2×3 vertical stacks) is available and fully
-                // recommended.
-                const recommended = !(sw === 3 && sh === 3);
                 return (
                   <button
                     key={`${sw}x${sh}`}
                     onClick={() => resize.mutateAsync({ id: selected.id, w: sw, h: sh })}
-                    aria-label={`${sw}×${sh}${recommended ? '' : ' (not recommended)'}`}
+                    aria-label={`${sw}×${sh}`}
                     style={{
-                      width: 22, height: 22, borderRadius: 5,
+                      width: 26, height: 22, borderRadius: 5,
                       background: active
                         ? `oklch(0.85 0.16 ${def?.hue ?? 220})`
-                        : recommended
-                          ? `oklch(0.78 0.16 ${def?.hue ?? 220} / 0.18)`
-                          : 'oklch(1 0 0 / 0.04)',
-                      border: `1px dashed oklch(${active ? '0.85' : '0.5'} 0.10 ${def?.hue ?? 220} / ${active ? 1 : recommended ? 0.4 : 0.20})`,
-                      borderStyle: recommended ? 'solid' : 'dashed',
+                        : `oklch(0.78 0.16 ${def?.hue ?? 220} / 0.18)`,
+                      border: `1px solid oklch(0.85 0.10 ${def?.hue ?? 220} / ${active ? 1 : 0.4})`,
                       cursor: 'pointer', padding: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 8, fontFamily: 'var(--font-mono)', fontWeight: 600,
-                      color: active ? '#06060a' : recommended ? 'transparent' : 'var(--fg-3)',
-                      opacity: recommended ? 1 : 0.55,
+                      fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 600,
+                      color: active ? '#06060a' : 'transparent',
                     }}
                   >
                     {`${sw}${sh}`}

@@ -1068,11 +1068,14 @@ const noConfig = z.object({}).strict() as unknown as z.ZodType<Record<string, un
 // `allowedSizes` is kept for any future widget that genuinely cannot
 // render at a given size; default opens everything so users + the AI
 // aren't artificially boxed in. See docs/Policy.md → "Widget grid".
-// 3 × 3 = 9 valid shapes. Every widget supports every shape.
+// 2 × 3 = 6 valid shapes on the mobile-first 2-col grid. Width is
+// capped at 2 because a 3-wide cell becomes ~33% of viewport on a
+// phone, too small for legible content. Height goes up to 3 so
+// users can build tall, info-dense widgets.
 const ALL_SIZES: WidgetSize[] = [
-  { w: 1, h: 1 }, { w: 2, h: 1 }, { w: 3, h: 1 },
-  { w: 1, h: 2 }, { w: 2, h: 2 }, { w: 3, h: 2 },
-  { w: 1, h: 3 }, { w: 2, h: 3 }, { w: 3, h: 3 },
+  { w: 1, h: 1 }, { w: 2, h: 1 },
+  { w: 1, h: 2 }, { w: 2, h: 2 },
+  { w: 1, h: 3 }, { w: 2, h: 3 },
 ];
 
 export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
