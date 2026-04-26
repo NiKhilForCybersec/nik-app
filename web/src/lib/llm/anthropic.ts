@@ -74,6 +74,9 @@ export class AnthropicProvider implements LLMProvider {
         'Content-Type': 'application/json',
         'x-api-key': directKey!,
         'anthropic-version': '2023-06-01',
+        // Required for browser-direct calls. Dev only — production must
+        // route via the Edge Function proxy so the key never ships.
+        'anthropic-dangerous-direct-browser-access': 'true',
       },
       body: JSON.stringify({
         model,

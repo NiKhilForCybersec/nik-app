@@ -20,8 +20,8 @@ import type {
   LLMRequest,
   LLMResponse,
 } from './types';
-import { MockLLMProvider } from './mock';
 import { AnthropicProvider } from './anthropic';
+import { OpenAIProvider } from './openai';
 
 const TRIVIAL_HINTS = [
   /^(yes|no|maybe|hi|hey|hello|thanks|ok)\b/i,
@@ -55,8 +55,8 @@ export class LLMRouter {
   constructor(providers?: LLMProvider[]) {
     this.providers = providers ?? [
       // On-device SLM goes here when available — it'll handle 'trivial'.
-      new AnthropicProvider(),
-      new MockLLMProvider(),     // fallback for offline / no-key dev
+      new AnthropicProvider(),  // primary
+      new OpenAIProvider(),     // fallback
     ];
   }
 
@@ -69,8 +69,11 @@ export class LLMRouter {
       if (ok === false) continue;
       return { provider: p, complexity };
     }
-    // Fallback to the last one (always-available mock).
-    return { provider: this.providers[this.providers.length - 1], complexity };
+    // No provider available — surface a clear error rather than silently
+    // routing to the wrong one. The caller will display this in chat.
+    throw new Error(
+      'No LLM provider available. Set VITE_ANTHROPIC_API_KEY or VITE_OPENAI_API_KEY in web/.env.local.',
+    );
   }
 
   async complete(req: LLMRequest): Promise<LLMResponse> {
