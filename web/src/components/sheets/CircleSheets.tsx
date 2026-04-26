@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { I } from '../icons';
 import { Avatar, Chip, HUDCorner, Ring } from '../primitives';
-import { PRIVACY_CATEGORIES, TRUST_TIERS, canCircleView } from '../../data/circle';
+import { PRIVACY_CATEGORIES, TRUST_TIERS, canCircleView } from '../../contracts/circle';
 
 // ── Sheet wrapper ────────────────────────────────────────
 type CircleSheetProps = {

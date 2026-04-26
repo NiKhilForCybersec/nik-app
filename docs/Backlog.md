@@ -14,6 +14,33 @@ What's NOT done. Roughly ordered by likely-next.
 - ✅ `LLMProvider` + `LLMRouter` (SLM-ready) — ChatScreen flows through it; tool calls dispatch through CommandBus (verified: "switch to ghibli theme" flips theme live)
 - ✅ `scheduled_intents` + `user_memories` tables + RLS + `intents_tick()` RPC + `intents-tick` Edge Function (the "in 2 weeks remind me X" infrastructure)
 - ✅ `intents.schedule / list / cancel` + `memory.save / list / archive` ops in registry
+- ✅ **Real Anthropic Claude in Chat** (OpenAI fallback, MockLLM deleted) — verified `POST api.anthropic.com → 200`
+- ✅ **AI tool-use loop** — Chat sends full registry catalog; AI mutates any data + UI (verified `habits.create` + `quests.create` + `ui.switchTheme`)
+- ✅ **Registry collision fix** — `operations` was overwriting same-name ops across namespaces; catalog jumped from 28 to 47+ tools (also fixes the MCP server)
+- ✅ **Auth UI** — email + password + demo button + SOON-badged OAuth (deferred to v2)
+- ✅ **Chat persistence** — `chat_messages` table; conversations survive reload; tool-call telemetry in JSONB
+- ✅ **Family circle migration** — `circle_members` table; `data/circle.ts` deleted; CircleScreen + sheets read from contract
+- ✅ **Phase A: generic `items` contract** — single table backs 22 SOON More-tab features. AI + MCP can already manage them via Chat even though screens still show SOON
+
+## More tab — phased rollout (33 SOON features)
+
+### Phase A — data layer + AI/MCP only ✅ SHIPPED
+22 of 33 SOON features now Claude-callable via the generic `items` contract:
+Reading · Shopping · Recipes · Plants · Wardrobe · Travel · Bucket List · Photos · Birthdays · Friends · Pets · Subscriptions · Bills · Receipts · Investments · Achievements · Goals · Career · Side Projects · Network · Care Team · Reflection (also: Symptoms · Nutrition · Time Capsule · Home maintenance · Language decks usable via items but earmarked for Phase B promotion)
+
+### Phase B — custom-shape contracts (one session each)
+- Hydration (extend habits with daily ml target + intake events)
+- Cycle (date-based phases + symptoms + predictions)
+- Symptoms log + AI pattern find
+- Languages (spaced-repetition decks)
+- Time Capsule (sealed letters, time-locked unsealing)
+- Calendar (integration MCP — Google/Apple)
+- Doctors / Care Team (join with care_team table, allergies, conditions)
+- Home maintenance (recurring schedules)
+- Projects (sprints, sub-tasks)
+
+### Phase C — pretty screens
+For every Phase A + B feature, replace the SOON tile with an actual dashboard. Each ~30-60 min once data exists. Mechanical bulk work.
 
 ## Near-term (next sprint or two)
 

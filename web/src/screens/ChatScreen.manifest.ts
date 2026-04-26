@@ -1,11 +1,15 @@
 import { defineScreen } from '../lib/screen-manifest';
+import { chat } from '../contracts';
 
-// TODO: populate as the screen wires to the registry.
 export const manifest = defineScreen({
   id: 'chat',
-  reads: [],
-  writes: [],
+  reads: [chat.history],
+  writes: [chat.append],
   commands: [],
-  permissions: [],
-  aiAffordances: [],
+  permissions: ['chat.read', 'chat.write'],
+  aiAffordances: [
+    'Add / log / mutate anything via tool calls',
+    'Ask anything (free-form Q&A)',
+    'Switch theme, navigate, toggle widgets',
+  ],
 });

@@ -31,6 +31,7 @@ function seedOnce(userId: string, displayName?: string) {
   void seedSampleSleepIfEmpty(userId);
   void seedSampleFamilyOpsIfEmpty(userId);
   void seedSampleQuestsIfEmpty(userId);
+  void seedSampleCircleIfEmpty(userId, displayName);
 }
 
 export function useAuth() {
@@ -447,4 +448,29 @@ async function seedSampleQuestsIfEmpty(userId: string) {
     seed.map((q) => ({ ...q, user_id: userId, completed_at: q.status === 'done' ? new Date().toISOString() : null })),
   );
   if (error) console.warn('[seed] quests insert failed', error);
+}
+
+async function seedSampleCircleIfEmpty(userId: string, displayName?: string) {
+  const { count } = await supabase
+    .from('circle_members')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((count ?? 0) > 0) return;
+
+  // Locale-neutral demo circle: self + a small family. Names are first
+  // initials so the design renders without leaning on any region.
+  // Every column listed on every row — Supabase's array-insert null-pads
+  // missing columns to null, violating NOT NULL even when the column has
+  // a default. See skills/nik-integrate/Gotchas.md.
+  const seed = [
+    { member_id: 'self',    name: displayName || 'You', role: 'You',     relation: 'self',     age: null, hue: 220, is_self: true,  status: 'online',  share_tier: 'inner',     custom_cats: [], birthday: null, blood_type: null, location: null, last_seen_at: null, profile: { score: 742, streak: 42 }, care_recipient: false },
+    { member_id: 'partner', name: 'Partner',            role: 'Partner', relation: 'partner',  age: null, hue: 320, is_self: false, status: 'online',  share_tier: 'inner',     custom_cats: [], birthday: null, blood_type: null, location: null, last_seen_at: null, profile: {}, care_recipient: false },
+    { member_id: 'child_a', name: 'Child A',            role: 'Child',   relation: 'child',    age: 8,    hue: 30,  is_self: false, status: 'away',    share_tier: 'kid',       custom_cats: [], birthday: null, blood_type: null, location: null, last_seen_at: null, profile: {}, care_recipient: false },
+    { member_id: 'child_b', name: 'Child B',            role: 'Child',   relation: 'child',    age: 12,   hue: 60,  is_self: false, status: 'online',  share_tier: 'kid',       custom_cats: [], birthday: null, blood_type: null, location: null, last_seen_at: null, profile: {}, care_recipient: false },
+    { member_id: 'parent',  name: 'Parent',             role: 'Parent',  relation: 'parent',   age: null, hue: 150, is_self: false, status: 'offline', share_tier: 'caregiver', custom_cats: [], birthday: null, blood_type: null, location: null, last_seen_at: null, profile: {}, care_recipient: true  },
+  ];
+  const { error } = await supabase.from('circle_members').insert(
+    seed.map((m) => ({ ...m, user_id: userId })),
+  );
+  if (error) console.warn('[seed] circle_members insert failed', error);
 }

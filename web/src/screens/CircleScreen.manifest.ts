@@ -1,11 +1,15 @@
 import { defineScreen } from '../lib/screen-manifest';
+import { circle } from '../contracts';
 
-// TODO: populate as the screen wires to the registry.
 export const manifest = defineScreen({
   id: 'circle',
-  reads: [],
-  writes: [],
+  reads: [circle.list],
+  writes: [circle.add, circle.updateSharing, circle.setStatus, circle.remove],
   commands: [],
-  permissions: [],
-  aiAffordances: [],
+  permissions: ['circle.read', 'circle.write'],
+  aiAffordances: [
+    'Add <person> to my family circle',
+    'Share my <category> with <person>',
+    'Mark <person> as offline',
+  ],
 });

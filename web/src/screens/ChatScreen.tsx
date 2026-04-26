@@ -7,6 +7,8 @@ import { VoiceOrb, Waveform } from '../components/primitives';
 import { llm } from '../lib/llm';
 import { useCommand } from '../lib/useCommand';
 import { useAuth } from '../lib/auth';
+import { useOp, useOpMutation } from '../lib/useOp';
+import { chat as chatOps } from '../contracts/chat';
 import { buildToolCatalog, executeToolCall } from '../lib/llm/tools';
 import type { LLMMessage, LLMToolCall } from '../lib/llm/types';
 
@@ -18,9 +20,11 @@ type ChatMsg = {
   toolCalls?: { name: string; ok: boolean; error?: string }[];
 };
 
-const WELCOME: ChatMsg[] = [
-  { from: 'ai', text: "Hi — I'm Nik. Ask me anything, or tell me to do something. I can switch themes, navigate, add quests, log habits, and more.", time: 'now' },
-];
+const WELCOME: ChatMsg = {
+  from: 'ai',
+  text: "Hi — I'm Nik. Ask me anything, or tell me to do something. I can switch themes, navigate, add quests, log habits, and more.",
+  time: 'now',
+};
 
 const SYSTEM_PROMPT = `You are Nik, an in-app personal assistant for the user's life-OS app.
 
@@ -30,14 +34,43 @@ After tools run successfully, give a one-sentence confirmation. Be concise.`;
 
 const TOOL_CATALOG = buildToolCatalog();
 
+const fmtTime = (iso: string) => {
+  const d = new Date(iso);
+  const h = d.getHours() % 12 || 12;
+  const m = d.getMinutes().toString().padStart(2, '0');
+  const ampm = d.getHours() >= 12 ? 'pm' : 'am';
+  return `${h}:${m}${ampm}`;
+};
+
 export default function ChatScreen({ listening, onVoice, setState }: ScreenProps) {
-  const [msgs, setMsgs] = React.useState<ChatMsg[]>(WELCOME);
+  const { userId } = useAuth();
+  const { data: history = [] } = useOp(chatOps.history, { limit: 100 });
+  const append = useOpMutation(chatOps.append);
+  const dispatch = useCommand();
+  const qc = useQueryClient();
+
+  // Local view state — derived from server history but holds in-flight
+  // turns optimistically so the UI updates instantly.
+  const [pending, setPending] = React.useState<ChatMsg[]>([]);
   const [input, setInput] = React.useState('');
   const [thinking, setThinking] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
-  const dispatch = useCommand();
-  const { userId } = useAuth();
-  const qc = useQueryClient();
+
+  // Project DB rows into ChatMsg shape; show WELCOME if there's no history.
+  const persisted = React.useMemo<ChatMsg[]>(() => {
+    if (!history.length) return [WELCOME];
+    return history
+      .filter((r) => r.role !== 'tool')
+      .map<ChatMsg>((r) => ({
+        from: r.role === 'user' ? 'user' : 'ai',
+        text: r.content,
+        time: fmtTime(r.created_at),
+        toolCalls: r.tool_calls.length
+          ? r.tool_calls.map((t) => ({ name: t.name, ok: true }))
+          : undefined,
+      }));
+  }, [history]);
+  const msgs = React.useMemo(() => [...persisted, ...pending], [persisted, pending]);
 
   React.useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -45,18 +78,22 @@ export default function ChatScreen({ listening, onVoice, setState }: ScreenProps
 
   const send = async (text: string) => {
     if (!text.trim()) return;
-    const nu: ChatMsg[] = [...msgs, { from: 'user', text, time: 'now' }];
-    setMsgs(nu);
+    const userMsg: ChatMsg = { from: 'user', text, time: 'now' };
+    setPending((p) => [...p, userMsg]);
     setInput('');
     setThinking(true);
 
+    // Persist the user turn immediately.
+    void append.mutateAsync({ role: 'user', content: text });
+
     // Build the conversation history for the LLM (system + user/assistant turns).
-    const llmHistory: LLMMessage[] = [
+    const baseHistory: LLMMessage[] = [
       { role: 'system', content: SYSTEM_PROMPT },
-      ...nu.map<LLMMessage>((m) => ({
+      ...persisted.map<LLMMessage>((m) => ({
         role: m.from === 'user' ? 'user' : 'assistant',
         content: m.text,
       })),
+      { role: 'user', content: text },
     ];
 
     try {
@@ -64,10 +101,12 @@ export default function ChatScreen({ listening, onVoice, setState }: ScreenProps
       // back, repeat. Cap at 4 hops to prevent runaway loops.
       const executed: { name: string; ok: boolean; error?: string }[] = [];
       let finalText = '';
-      let history = llmHistory;
+      let llmHistory = baseHistory;
+      let lastResponse: { provider: string; model: string; latencyMs?: number } | undefined;
 
       for (let hop = 0; hop < 4; hop++) {
-        const response = await llm.complete({ messages: history, tools: TOOL_CATALOG });
+        const response = await llm.complete({ messages: llmHistory, tools: TOOL_CATALOG });
+        lastResponse = { provider: response.provider, model: response.model, latencyMs: response.latencyMs };
 
         if (!response.toolCalls.length) {
           finalText = response.text || '…';
@@ -75,21 +114,17 @@ export default function ChatScreen({ listening, onVoice, setState }: ScreenProps
         }
 
         // Append the assistant's tool-use turn.
-        history = [
-          ...history,
+        llmHistory = [
+          ...llmHistory,
           { role: 'assistant', content: response.text, toolCalls: response.toolCalls },
         ];
 
         // Execute each tool call and append its result.
         for (const tc of response.toolCalls) {
           const r = await executeToolCall(tc as LLMToolCall, { userId, dispatch });
-          executed.push({
-            name: r.registryName,
-            ok: !r.error,
-            error: r.error,
-          });
-          history = [
-            ...history,
+          executed.push({ name: r.registryName, ok: !r.error, error: r.error });
+          llmHistory = [
+            ...llmHistory,
             {
               role: 'tool',
               tool_call_id: tc.id,
@@ -99,21 +134,34 @@ export default function ChatScreen({ listening, onVoice, setState }: ScreenProps
         }
       }
 
-      // Any backend-op tool call mutated DB state — invalidate React Query.
+      // Persist the assistant turn (with tool calls) to DB.
+      await append.mutateAsync({
+        role: 'assistant',
+        content: finalText,
+        toolCalls: executed.map((e, i) => ({ id: `c${i}`, name: e.name, arguments: {} })),
+        provider: lastResponse?.provider,
+        model: lastResponse?.model,
+        latencyMs: lastResponse?.latencyMs,
+      });
+
+      // Any backend-op mutation → invalidate React Query so other screens refresh.
       if (executed.some((e) => e.ok && !e.name.startsWith('ui.'))) {
         await qc.invalidateQueries();
+      } else {
+        // Always re-fetch the chat history so persisted shows the new rows.
+        await qc.invalidateQueries({ queryKey: ['chat.history'] });
       }
-
-      setMsgs([
-        ...nu,
-        { from: 'ai', text: finalText, time: 'now', toolCalls: executed.length ? executed : undefined },
-      ]);
+      setPending([]);
     } catch (e) {
-      setMsgs([...nu, { from: 'ai', text: `Sorry — ${(e as Error).message}`, time: 'now' }]);
+      const errText = `Sorry — ${(e as Error).message}`;
+      await append.mutateAsync({ role: 'assistant', content: errText }).catch(() => {});
+      setPending([]);
+      await qc.invalidateQueries({ queryKey: ['chat.history'] });
     } finally {
       setThinking(false);
     }
   };
+
 
   const suggestions = ['Plan my evening', 'Move my 3pm', 'How am I doing today?', 'Add a quest'];
 

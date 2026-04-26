@@ -23,6 +23,9 @@ import { sleep } from './sleep';
 import { familyOps } from './familyOps';
 import { profile } from './profile';
 import { quests } from './quests';
+import { chat } from './chat';
+import { circle } from './circle';
+import { items } from './items';
 
 export { habits } from './habits';
 export { ui } from './ui-commands';
@@ -34,6 +37,11 @@ export { sleep } from './sleep';
 export { familyOps } from './familyOps';
 export { profile } from './profile';
 export { quests } from './quests';
+export { chat } from './chat';
+export { circle, PRIVACY_CATEGORIES, TRUST_TIERS, canCircleView } from './circle';
+export type { CircleMember, PrivacyCategoryId } from './circle';
+export { items, ItemKind } from './items';
+export type { Item } from './items';
 
 // Flat registry — single source of truth consumed by MCP server,
 // dev overlay, and the in-app LLM tool catalog. Keyed by full dotted
@@ -61,7 +69,7 @@ function flattenCmds(...groups: Record<string, CommandDef<any>>[]): Record<strin
 }
 
 export const operations = flattenOps(
-  habits, intents, memory, events, diary, score, sleep, familyOps, profile, quests,
+  habits, intents, memory, events, diary, score, sleep, familyOps, profile, quests, chat, circle, items,
 );
 
 export const commands = flattenCmds(ui);

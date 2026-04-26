@@ -8,6 +8,10 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 
 | File | Exports |
 |---|---|
+| [web/src/contracts/chat.ts](../web/src/contracts/chat.ts) | `ChatMessage`, `ChatRole`, `ChatToolCall`, `chat` |
+| _The Chat screen replays the last N messages on mount + appends new ones_ | |
+| [web/src/contracts/circle.ts](../web/src/contracts/circle.ts) | `CircleMember`, `PRIVACY_CATEGORIES`, `PrivacyCategoryId`, `Relation`, `ShareTier`, `SharingMatrix`, `Status`, `TRUST_TIERS`, `canCircleView`, `circle` |
+| _Read/write the user's family circle. Each row represents a person_ | |
 | [web/src/contracts/diary.ts](../web/src/contracts/diary.ts) | `DiaryEntry`, `Pillar`, `diary` |
 | [web/src/contracts/events.ts](../web/src/contracts/events.ts) | `Event`, `EventKind`, `events` |
 | _Generic feed every external integration MCP server (Gmail, Calendar,_ | |
@@ -15,10 +19,12 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 | _Tasks + alarms shared between the parent(s) for kids' routines._ | |
 | [web/src/contracts/habits.ts](../web/src/contracts/habits.ts) | `Habit`, `HabitIcon`, `HabitSource`, `habits` |
 | _Single source of truth for everything the AI/app/backend can do_ | |
-| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `OperationName`, `REGISTRY`, `commands`, `diary`, `events`, `familyOps`, `habits`, `intents`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
+| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `canCircleView`, `chat`, `circle`, `commands`, `diary`, `events`, `familyOps`, `habits`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
 | _Re-exports every operation and UI command. Imports here are the_ | |
 | [web/src/contracts/intents.ts](../web/src/contracts/intents.ts) | `Intent`, `IntentKind`, `Memory`, `MemoryKind`, `intents`, `memory` |
 | _Operations the AI uses to remember things and schedule callbacks._ | |
+| [web/src/contracts/items.ts](../web/src/contracts/items.ts) | `Item`, `ItemKind`, `items` |
+| _Backs ~22 of the 33 SOON dashboards in the More tab. One table,_ | |
 | [web/src/contracts/profile.ts](../web/src/contracts/profile.ts) | `Profile`, `ProfileStats`, `profile` |
 | _One row per user. Hero card stats (level/xp/streak), 5-pillar RPG_ | |
 | [web/src/contracts/quests.ts](../web/src/contracts/quests.ts) | `Quest`, `QuestRank`, `QuestStatus`, `quests` |
@@ -41,13 +47,17 @@ _React hooks, helpers, the LLM router, the Supabase client._
 | _Same shape as operations.ts but for things the AI can do TO the UI:_ | |
 | [web/src/lib/llm/anthropic.ts](../web/src/lib/llm/anthropic.ts) | `AnthropicProvider` |
 | _Anthropic provider — calls Claude via a Supabase Edge Function proxy._ | |
-| [web/src/lib/llm/index.ts](../web/src/lib/llm/index.ts) | `AnthropicProvider`, `LLMRouter`, `MockLLMProvider`, `llm` |
-| [web/src/lib/llm/mock.ts](../web/src/lib/llm/mock.ts) | `MockLLMProvider` |
-| _Mock LLM provider — deterministic canned responses._ | |
+| [web/src/lib/llm/index.ts](../web/src/lib/llm/index.ts) | `AnthropicProvider`, `LLMRouter`, `OpenAIProvider`, `llm` |
+| [web/src/lib/llm/openai.ts](../web/src/lib/llm/openai.ts) | `OpenAIProvider` |
+| _OpenAI provider — calls GPT via the Chat Completions API._ | |
 | [web/src/lib/llm/router.ts](../web/src/lib/llm/router.ts) | `LLMRouter`, `llm` |
 | _Picks a provider per request based on:_ | |
+| [web/src/lib/llm/tools.ts](../web/src/lib/llm/tools.ts) | `ExecuteCtx`, `ExecuteResult`, `buildToolCatalog`, `executeToolCall` |
+| _Bridges the Operations + Commands registry into the LLM tool-use loop._ | |
 | [web/src/lib/llm/types.ts](../web/src/lib/llm/types.ts) | `LLMComplexity`, `LLMMessage`, `LLMProvider`, `LLMRequest`, `LLMResponse`, `LLMRole`, `LLMTool`, `LLMToolCall` |
 | _The shared shape every model-backed provider implements: cloud_ | |
+| [web/src/lib/llm/zodToJsonSchema.ts](../web/src/lib/llm/zodToJsonSchema.ts) | `zodToJsonSchema` |
+| _Tiny Zod → JSON Schema converter._ | |
 | [web/src/lib/operations.ts](../web/src/lib/operations.ts) | `FlattenOps`, `OperationContext`, `OperationDef`, `OperationKind`, `defineOp` |
 | _Every "thing Nik can do" is defined here once and used by THREE consumers:_ | |
 | [web/src/lib/screen-manifest.ts](../web/src/lib/screen-manifest.ts) | `ScreenManifest`, `defineScreen` |
@@ -87,10 +97,8 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/BriefScreen.tsx](../web/src/screens/BriefScreen.tsx) | `*default*`, `BriefScreen` |
 | _Reads ingested events from `events` table (movie tickets, calendar_ | |
 | [web/src/screens/ChatScreen.manifest.ts](../web/src/screens/ChatScreen.manifest.ts) | `manifest` |
-| _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/ChatScreen.tsx](../web/src/screens/ChatScreen.tsx) | `*default*`, `ChatScreen` |
 | [web/src/screens/CircleScreen.manifest.ts](../web/src/screens/CircleScreen.manifest.ts) | `manifest` |
-| _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/CircleScreen.tsx](../web/src/screens/CircleScreen.tsx) | `*default*`, `CircleScreen` |
 | _Design language matches MoreScreen — categorized bento sections,_ | |
 | [web/src/screens/ComingSoonScreen.manifest.ts](../web/src/screens/ComingSoonScreen.manifest.ts) | `manifest` |
@@ -192,17 +200,8 @@ _Shared type-only modules._
 | [web/src/types/app-state.ts](../web/src/types/app-state.ts) | `AppState`, `ScreenId` |
 | _AppState shape — pulled out of App.tsx so non-JSX modules (commands,_ | |
 
-## Mock data
-
-_Locale-neutral seed shapes used by un-migrated screens._
-
-| File | Exports |
-|---|---|
-| [web/src/data/circle.ts](../web/src/data/circle.ts) | `CIRCLE`, `CIRCLE_ALERTS`, `CIRCLE_MEMBERS`, `DEFAULT_SHARING`, `PRIVACY_CATEGORIES`, `TRUST_TIERS`, `VIEW_LOG`, `canCircleView` |
-| _Rich profiles, per-person sharing matrix, awareness log._ | |
-
 ---
 
-**Stats**: 88 files, 253 exports.
+**Stats**: 92 files, 274 exports.
 
-**Last regenerated**: 2026-04-26T02:46:18.578Z.
+**Last regenerated**: 2026-04-26T04:33:29.941Z.

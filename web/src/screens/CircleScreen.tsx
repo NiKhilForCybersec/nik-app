@@ -4,13 +4,9 @@
 */
 import React from 'react';
 import type { ScreenProps } from '../App';
-import {
-  CIRCLE_MEMBERS,
-  CIRCLE_ALERTS,
-  VIEW_LOG,
-  DEFAULT_SHARING,
-  canCircleView,
-} from '../data/circle';
+import { useOp } from '../lib/useOp';
+import { circle as circleOps, canCircleView, TRUST_TIERS } from '../contracts/circle';
+import type { CircleMember } from '../contracts/circle';
 import { I } from '../components/icons';
 import { Avatar, Chip, HUDCorner } from '../components/primitives';
 import {
@@ -19,7 +15,65 @@ import {
   ViewLogSheet,
 } from '../components/sheets/CircleSheets';
 
-const ME = 'arjun';
+// Project a DB row into the legacy "rich member" shape the screen + sheets
+// were originally written against. Health/meds/etc. live in the JSONB
+// `profile` until they earn their own contracts.
+type LegacyMember = {
+  id: string;
+  name: string;
+  role: string;
+  age: number | null;
+  hue: number;
+  self: boolean;
+  status: 'online' | 'away' | 'offline';
+  location: string | null;
+  birthday: string | null;
+  bloodType: string | null;
+  health: Record<string, any>;
+  meds: any[];
+  care: Record<string, any>;
+  schedule: any[];
+  diary: Record<string, any>;
+  cycle?: Record<string, any>;
+  careRecipient: boolean;
+  member_id: string;
+  share_tier: CircleMember['share_tier'];
+  custom_cats: string[];
+};
+
+function toLegacy(m: CircleMember): LegacyMember {
+  const p = m.profile as Record<string, any>;
+  return {
+    id: m.member_id,
+    name: m.name,
+    role: m.role,
+    age: m.age,
+    hue: m.hue,
+    self: m.is_self,
+    status: m.status,
+    location: m.location,
+    birthday: m.birthday,
+    bloodType: m.blood_type,
+    health: (p.health ?? {}) as Record<string, any>,
+    meds: Array.isArray(p.meds) ? p.meds : [],
+    care: (p.care ?? {}) as Record<string, any>,
+    schedule: Array.isArray(p.schedule) ? p.schedule : [],
+    diary: (p.diary ?? {}) as Record<string, any>,
+    cycle: p.cycle as Record<string, any> | undefined,
+    careRecipient: m.care_recipient,
+    member_id: m.member_id,
+    share_tier: m.share_tier,
+    custom_cats: m.custom_cats,
+  };
+}
+
+// View log + alerts haven't been migrated yet — small inline placeholders.
+// Promote to their own tables once the underlying domains (location
+// changes, missed-meds detection, etc.) feed them.
+const VIEW_LOG: { viewer: string; owner: string; section: string; when: string }[] = [];
+const CIRCLE_ALERTS: { ownerId: string; kind: string; level: string; text: string; cta: string }[] = [];
+
+const ME = 'self';
 
 // alert level → palette hue + accent stroke
 const ALERT_TONE: Record<string, { hue: number; accent: string; tone: 'danger' | 'warn' | 'accent' }> = {
@@ -49,11 +103,25 @@ const CTA_ICON = (cta: string): keyof typeof I => {
 export default function CircleScreen({ onNav, state, setState }: ScreenProps) {
   void onNav;
   const me = ME;
-  const members = CIRCLE_MEMBERS;
+  const { data: rows = [] } = useOp(circleOps.list, {});
+  const members = React.useMemo(() => rows.map(toLegacy), [rows]);
   const alerts = CIRCLE_ALERTS;
   const log = VIEW_LOG;
-  const sharing: Record<string, any> =
-    ((state as any)?.sharingOverride as Record<string, any>) || DEFAULT_SHARING;
+  // Build a sharing matrix from the per-member tier/custom_cats columns
+  // so canCircleView() (legacy signature) keeps working in the JSX.
+  const sharing: Record<string, any> = React.useMemo(() => {
+    const out: Record<string, Record<string, any>> = {};
+    for (const m of rows) {
+      // Owner = signed-in user; viewer = each circle member.
+      // For each (viewer = member, owner = self) pair, we surface the tier the
+      // owner picked. Override via state if present.
+      out['self'] = out['self'] ?? {};
+      const tier = m.share_tier === 'custom' ? { cats: m.custom_cats } : m.share_tier;
+      out['self'][m.member_id] = tier;
+    }
+    return ((state as any)?.sharingOverride as Record<string, any>) || out;
+  }, [rows, state]);
+  void TRUST_TIERS; // re-exported for sheets
 
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   const [showPrivacy, setShowPrivacy] = React.useState(false);
