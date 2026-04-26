@@ -377,6 +377,77 @@ export default function WidgetsScreen(_p: ScreenProps) {
           Reset to default canvas
         </button>
       )}
+
+      {/* Floating size dock — appears when any tile is selected, sits
+          above the tab bar so it never gets cut off (which the
+          per-tile selector did when the selected tile was at the
+          top of the canvas). 3×3 grid; tap any cell to set that
+          shape on the selected widget. */}
+      {(() => {
+        const selected = visibleList.find((w) => w.id === selectedId);
+        if (!selected) return null;
+        const def = WIDGET_TYPES[selected.widget_type as WidgetType];
+        const cw = selected.w as WidgetUnit;
+        const ch = selected.h as WidgetUnit;
+        return (
+          <div
+            onClick={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            style={{
+              position: 'fixed', bottom: 96, left: '50%', transform: 'translateX(-50%)', zIndex: 50,
+              padding: 12, borderRadius: 16,
+              background: 'oklch(0.14 0.02 260 / 0.96)',
+              border: `1px solid oklch(0.85 0.16 ${def?.hue ?? 220} / 0.5)`,
+              backdropFilter: 'blur(14px)',
+              boxShadow: '0 14px 40px -10px oklch(0 0 0 / 0.7)',
+              display: 'flex', alignItems: 'center', gap: 14,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.4, marginBottom: 2 }}>
+                RESIZE
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--fg-1)', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {def?.label ?? selected.widget_type}
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 22px)', gap: 5 }}>
+              {([1, 2, 3] as const).flatMap((sh) => ([1, 2, 3] as const).map((sw) => {
+                const active = sw === cw && sh === ch;
+                return (
+                  <button
+                    key={`${sw}x${sh}`}
+                    onClick={() => resize.mutateAsync({ id: selected.id, w: sw, h: sh })}
+                    aria-label={`${sw}×${sh}`}
+                    style={{
+                      width: 22, height: 22, borderRadius: 5,
+                      background: active ? `oklch(0.85 0.16 ${def?.hue ?? 220})` : `oklch(0.78 0.16 ${def?.hue ?? 220} / 0.18)`,
+                      border: `1px solid oklch(0.85 0.16 ${def?.hue ?? 220} / ${active ? 1 : 0.4})`,
+                      cursor: 'pointer', padding: 0,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 8, fontFamily: 'var(--font-mono)', fontWeight: 600,
+                      color: active ? '#06060a' : 'transparent',
+                    }}
+                  >
+                    {`${sw}${sh}`}
+                  </button>
+                );
+              }))}
+            </div>
+            <button
+              onClick={() => setSelectedId(null)}
+              style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: 'oklch(1 0 0 / 0.06)', border: '1px solid var(--hairline-strong)',
+                color: 'var(--fg-2)', cursor: 'pointer', fontSize: 12, padding: 0,
+              }}
+              aria-label="Done"
+            >
+              ✓
+            </button>
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -458,16 +529,28 @@ const SortableWidget: React.FC<{
     setDropRef(node);
   };
 
-  // Track tile width so we can map an edge-drag delta into "are we
-  // crossing the half-tile threshold?" — once you drag past ~30% of
-  // the row's width or height the size flips.
   const tileRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Optimistic resize state. While dragging an edge we update this
+  // local size on every rAF tick so the tile reflows immediately;
+  // the actual resize.mutateAsync() fires once on pointerup. Without
+  // this, every drag tick triggers a server round-trip + cache
+  // invalidate + full canvas re-render — jank galore.
+  const [optimisticSize, setOptimisticSize] = React.useState<WidgetSize | null>(null);
+  const w = (optimisticSize?.w ?? widget.w) as WidgetUnit;
+  const h = (optimisticSize?.h ?? widget.h) as WidgetUnit;
+  React.useEffect(() => {
+    // Drop optimistic state once the server-side row matches.
+    if (optimisticSize && widget.w === optimisticSize.w && widget.h === optimisticSize.h) {
+      setOptimisticSize(null);
+    }
+  }, [widget.w, widget.h, optimisticSize]);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    gridColumn: `span ${widget.w}`,
-    gridRow: `span ${widget.h}`,
+    gridColumn: `span ${w}`,
+    gridRow: `span ${h}`,
     position: 'relative',
     opacity: isBeingDragged || isDragging ? 0.35 : 1,
     outline: isOver
@@ -493,12 +576,19 @@ const SortableWidget: React.FC<{
   }
   const Render = def.Component;
 
-  // Edge-drag resize handler. Drag the right edge → grows/shrinks w
-  // through {1, 2, 3}; drag the bottom edge → same for h. We snap to
-  // the closest cell-unit based on cursor position relative to the
-  // tile's left/top edge. Pointermove is rAF-throttled so we never
-  // process more than one move per paint frame, which kills the
-  // choppiness on touch devices.
+  // Edge-drag resize handler.
+  //
+  // - Right edge → grows/shrinks w through {1, 2, 3}.
+  // - Bottom edge → same for h.
+  // - Snap maps cursor distance from the tile's left/top edge to the
+  //   nearest cell-unit, so dragging past one cell of distance flips
+  //   to the next size.
+  // - Pointermove is rAF-throttled so we never process more than one
+  //   logical update per paint frame.
+  // - Optimistic state updates (setOptimisticSize) makes the tile
+  //   reflow instantly while the user drags. The actual mutation
+  //   only fires on pointerup, so the network round-trip happens at
+  //   most once per drag.
   const startEdgeDrag = (axis: 'w' | 'h') => (e: React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
@@ -508,12 +598,11 @@ const SortableWidget: React.FC<{
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
 
-    // Cell width/height in px (1-unit). For w-axis: rect.width is
-    // the *current* width covering widget.w columns; cell = rect / w.
-    const cellW = rect.width / widget.w;
-    const cellH = rect.height / widget.h;
-    let nextW = widget.w as WidgetUnit;
-    let nextH = widget.h as WidgetUnit;
+    // Cell-unit size = current tile dim ÷ current w/h.
+    const cellW = rect.width / w;
+    const cellH = rect.height / h;
+    let nextW = w;
+    let nextH = h;
 
     let pending: PointerEvent | null = null;
     let raf = 0;
@@ -522,15 +611,17 @@ const SortableWidget: React.FC<{
       if (!pending) return;
       const m = pending;
       pending = null;
+      let changed = false;
       if (axis === 'w') {
         const distFromLeft = m.clientX - rect.left;
-        const units = Math.round(distFromLeft / cellW);
-        nextW = (Math.max(1, Math.min(3, units)) as WidgetUnit);
+        const units = Math.max(1, Math.min(3, Math.round(distFromLeft / cellW))) as WidgetUnit;
+        if (units !== nextW) { nextW = units; changed = true; }
       } else {
         const distFromTop = m.clientY - rect.top;
-        const units = Math.round(distFromTop / cellH);
-        nextH = (Math.max(1, Math.min(3, units)) as WidgetUnit);
+        const units = Math.max(1, Math.min(3, Math.round(distFromTop / cellH))) as WidgetUnit;
+        if (units !== nextH) { nextH = units; changed = true; }
       }
+      if (changed) setOptimisticSize({ w: nextW, h: nextH });
     };
 
     const onMove = (m: PointerEvent) => {
@@ -545,12 +636,21 @@ const SortableWidget: React.FC<{
       target.removeEventListener('pointercancel', onUp);
       if (nextW !== widget.w || nextH !== widget.h) {
         onSetSize(widget, { w: nextW, h: nextH });
+      } else {
+        setOptimisticSize(null);
       }
     };
 
     target.addEventListener('pointermove', onMove);
     target.addEventListener('pointerup', onUp);
     target.addEventListener('pointercancel', onUp);
+  };
+
+  // Tap a cell in the 3×3 selector → instant optimistic resize +
+  // commit.
+  const setSize = (next: WidgetSize) => {
+    setOptimisticSize(next);
+    onSetSize(widget, next);
   };
 
   return (
@@ -561,9 +661,10 @@ const SortableWidget: React.FC<{
       {...listeners}
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
-      {/* Tap-through disabled while editing. */}
+      {/* Tap-through disabled while editing. Render at the optimistic
+          size so resize feels immediate. */}
       <div style={{ pointerEvents: 'none' }}>
-        <Render size={{ w: widget.w as WidgetUnit, h: widget.h as WidgetUnit }} config={widget.config} />
+        <Render size={{ w, h }} config={widget.config} />
       </div>
 
       {/* ✕ remove */}
@@ -581,70 +682,44 @@ const SortableWidget: React.FC<{
       </button>
 
       {/* Edge-drag resize handles — only when selected. Right edge
-          toggles width; bottom edge toggles height. Drag past half
-          the tile's dimension to commit. */}
+          flips width through {1, 2, 3}; bottom edge flips height.
+          Touch targets are 16px wide / tall (visible bar is thinner
+          and centred inside) so they're easy to grab on touch. */}
       {isSelected && (
         <>
           <div
             onPointerDown={startEdgeDrag('w')}
             aria-label="Drag right edge to resize width"
             style={{
-              position: 'absolute', top: 8, bottom: 8, right: -3, width: 6,
-              borderRadius: 3,
-              background: `oklch(0.85 0.16 ${def.hue})`,
-              cursor: 'ew-resize', zIndex: 5, touchAction: 'none',
-              boxShadow: '0 0 8px oklch(0 0 0 / 0.4)',
+              position: 'absolute', top: 14, bottom: 14, right: -8,
+              width: 16, zIndex: 5, touchAction: 'none', cursor: 'ew-resize',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-          />
+          >
+            <div style={{
+              width: 4, height: '60%', borderRadius: 2,
+              background: `oklch(0.85 0.16 ${def.hue})`,
+              boxShadow: `0 0 6px oklch(0.85 0.16 ${def.hue} / 0.7)`,
+            }} />
+          </div>
           <div
             onPointerDown={startEdgeDrag('h')}
             aria-label="Drag bottom edge to resize height"
             style={{
-              position: 'absolute', left: 8, right: 8, bottom: -3, height: 6,
-              borderRadius: 3,
-              background: `oklch(0.85 0.16 ${def.hue})`,
-              cursor: 'ns-resize', zIndex: 5, touchAction: 'none',
-              boxShadow: '0 0 8px oklch(0 0 0 / 0.4)',
+              position: 'absolute', left: 14, right: 14, bottom: -8,
+              height: 16, zIndex: 5, touchAction: 'none', cursor: 'ns-resize',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}
-          />
+          >
+            <div style={{
+              width: '60%', height: 4, borderRadius: 2,
+              background: `oklch(0.85 0.16 ${def.hue})`,
+              boxShadow: `0 0 6px oklch(0.85 0.16 ${def.hue} / 0.7)`,
+            }} />
+          </div>
         </>
       )}
 
-      {/* Size selector — 3×3 grid of every shape, surfaces below the
-          remove button when selected. Each cell is a tappable
-          mini-rectangle whose proportions visually match the size. */}
-      {isSelected && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          onPointerDown={(e) => e.stopPropagation()}
-          style={{
-            position: 'absolute', top: 8, right: 8, zIndex: 4,
-            padding: 6, borderRadius: 10,
-            background: 'oklch(0.16 0.02 260 / 0.92)',
-            border: '1px solid var(--hairline-strong)',
-            display: 'grid', gridTemplateColumns: 'repeat(3, 14px)', gap: 3,
-            backdropFilter: 'blur(8px)',
-            boxShadow: '0 8px 18px -6px oklch(0 0 0 / 0.5)',
-          }}
-        >
-          {([1, 2, 3] as const).flatMap((h) => ([1, 2, 3] as const).map((w) => {
-            const active = w === widget.w && h === widget.h;
-            return (
-              <button
-                key={`${w}x${h}`}
-                onClick={() => onSetSize(widget, { w, h })}
-                aria-label={`${w}×${h}`}
-                style={{
-                  width: 14, height: 14, borderRadius: 3,
-                  background: active ? `oklch(0.85 0.16 ${def.hue})` : `oklch(0.78 0.16 ${def.hue} / 0.20)`,
-                  border: `1px solid oklch(0.85 0.16 ${def.hue} / ${active ? 1 : 0.4})`,
-                  cursor: 'pointer', padding: 0,
-                }}
-              />
-            );
-          }))}
-        </div>
-      )}
 
       {/* Tiny size badge in the corner when not selected (always visible) */}
       {!isSelected && (
@@ -657,7 +732,7 @@ const SortableWidget: React.FC<{
             color: 'var(--fg-3)', pointerEvents: 'none', zIndex: 3,
           }}
         >
-          {widget.w}×{widget.h}
+          {w}×{h}
         </div>
       )}
     </div>
@@ -802,7 +877,7 @@ const DraggableLibraryItem: React.FC<{
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative', zIndex: 1 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 10,
-          background: `linear-gradient(135deg, oklch(0.78 0.16 ${hue}), oklch(0.55 0.22 ${(def.hue + 40) % 360}))`,
+          background: `linear-gradient(135deg, oklch(0.78 0.16 ${hue}), oklch(0.55 0.22 ${(hue + 40) % 360}))`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: `0 6px 16px -4px oklch(0.78 0.16 ${hue} / 0.45)`,
           flexShrink: 0,
@@ -811,7 +886,7 @@ const DraggableLibraryItem: React.FC<{
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            {def.label}
+            {preset.label}
           </div>
           <div style={{ fontSize: 9, color: `oklch(0.85 0.13 ${hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1.5 }}>
             {def.defaultSize.w}×{def.defaultSize.h} · ALL SIZES
@@ -821,7 +896,7 @@ const DraggableLibraryItem: React.FC<{
 
       {/* Description */}
       <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.4, position: 'relative', zIndex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-        {def.description}
+        {preset.description}
       </div>
 
       {/* Footer hint */}

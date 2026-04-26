@@ -164,6 +164,9 @@ const HydrationToday: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
   const goal = data?.goalMl ?? 2000;
   const pct = total / goal;
   const hue = 200;
+  const intakes = (data?.intakes ?? []) as { ml: number; occurred_at: string }[];
+  const isLarge = size.w >= 2 && size.h >= 2;
+  const isWide = size.w >= 2;
   return (
     <WidgetShell hue={hue} icon="water" label="Hydration today" size={size} onOpen={onOpen} glow
       accent={<Chip tone="accent" size="sm">{Math.round(Math.min(1, pct) * 100)}%</Chip>}
@@ -173,6 +176,41 @@ const HydrationToday: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
         <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>/ {goal} ml</div>
       </div>
       <ProgressBar pct={pct} hue={hue} />
+      {/* 8 cup glyphs at wide sizes (2×1+) */}
+      {isWide && (
+        <div style={{ display: 'flex', gap: 4, marginTop: 10 }}>
+          {Array.from({ length: 8 }).map((_, i) => {
+            const filled = i < Math.round(pct * 8);
+            return (
+              <div key={i} style={{
+                flex: 1, height: 14, borderRadius: 4,
+                background: filled ? `linear-gradient(180deg, oklch(0.78 0.16 ${hue}), oklch(0.6 0.20 ${hue + 30}))` : `oklch(0.78 0.16 ${hue} / 0.10)`,
+                border: `1px solid oklch(0.78 0.16 ${hue} / ${filled ? 0.6 : 0.25})`,
+              }} />
+            );
+          })}
+        </div>
+      )}
+      {/* Recent intake timeline at hero sizes (2×2+) */}
+      {isLarge && intakes.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--hairline)' }}>
+          <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
+            RECENT · {intakes.length} TODAY
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 110, overflow: 'hidden' }}>
+            {intakes.slice(0, 5).map((iv, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                <span style={{ color: `oklch(0.85 0.14 ${hue})`, fontFamily: 'var(--font-mono)', minWidth: 38 }}>
+                  {iv.ml}ml
+                </span>
+                <span style={{ color: 'var(--fg-3)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                  {new Date(iv.occurred_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </WidgetShell>
   );
 };
@@ -201,37 +239,71 @@ const ScoreGauge: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
   const { data } = useOp(scoreOps.get, {});
   const total = data?.total ?? 0;
   const delta = data?.delta_7d ?? 0;
-  const pillarPcts = data?.pillars
-    ? [
-        (data.pillars.focus?.value ?? 0)  / (data.pillars.focus?.max ?? 1),
-        (data.pillars.health?.value ?? 0) / (data.pillars.health?.max ?? 1),
-        (data.pillars.mind?.value ?? 0)   / (data.pillars.mind?.max ?? 1),
-        (data.pillars.family?.value ?? 0) / (data.pillars.family?.max ?? 1),
-      ]
-    : [0, 0, 0, 0];
+  const pillarLabels = ['Focus', 'Health', 'Mind', 'Family'] as const;
+  const pillarKeys = ['focus', 'health', 'mind', 'family'] as const;
   const pillarHues = [220, 25, 280, 150];
+  const pillars = pillarKeys.map((k, i) => ({
+    label: pillarLabels[i],
+    hue: pillarHues[i],
+    value: ((data?.pillars as Record<string, { value: number }> | undefined)?.[k]?.value) ?? 0,
+    max: ((data?.pillars as Record<string, { max: number }> | undefined)?.[k]?.max) ?? 1,
+  }));
   const deltaColor = delta > 0 ? 'oklch(0.78 0.18 145)' : delta < 0 ? 'oklch(0.78 0.18 25)' : 'var(--fg-3)';
   const deltaText = delta === 0 ? '—' : `${delta > 0 ? '+' : ''}${delta}`;
+  const isLarge = size.w >= 2 && size.h >= 2;
   return (
     <WidgetShell hue={220} icon="sparkle" label="Nik Score" size={size} onOpen={onOpen} glow
       accent={<span style={{ fontSize: 10, color: deltaColor, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>{deltaText}</span>}
     >
       <HeroNumber value={total} hue={220} size={size} gradient={[200, 280]} />
-      <div style={{ display: 'flex', gap: 3, marginTop: 10 }}>
-        {pillarPcts.map((p, i) => (
-          <div key={i} style={{ flex: 1, height: 4, borderRadius: 99, background: 'oklch(1 0 0 / 0.06)', overflow: 'hidden' }}>
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(100, p * 100)}%` }}
-              transition={{ duration: 0.7, delay: 0.2 + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
-              style={{ height: '100%', background: `oklch(0.85 0.16 ${pillarHues[i]})` }}
-            />
+      {/* Compact pillar bars at small sizes */}
+      {!isLarge && (
+        <>
+          <div style={{ display: 'flex', gap: 3, marginTop: 10 }}>
+            {pillars.map((p, i) => (
+              <div key={p.label} style={{ flex: 1, height: 4, borderRadius: 99, background: 'oklch(1 0 0 / 0.06)', overflow: 'hidden' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(100, (p.value / p.max) * 100)}%` }}
+                  transition={{ duration: 0.7, delay: 0.2 + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ height: '100%', background: `oklch(0.85 0.16 ${p.hue})` }}
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-      <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginTop: 6, letterSpacing: 1 }}>
-        FOCUS · HEALTH · MIND · FAMILY
-      </div>
+          <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginTop: 6, letterSpacing: 1 }}>
+            FOCUS · HEALTH · MIND · FAMILY
+          </div>
+        </>
+      )}
+      {/* Full pillar list at hero sizes */}
+      {isLarge && (
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {pillars.map((p, i) => (
+            <div key={p.label}>
+              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span style={{ fontSize: 11, color: 'var(--fg-2)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
+                  {p.label.toUpperCase()}
+                </span>
+                <span style={{ fontSize: 11, color: `oklch(0.92 0.14 ${p.hue})`, fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums' }}>
+                  {p.value} <span style={{ color: 'var(--fg-3)' }}>/ {p.max}</span>
+                </span>
+              </div>
+              <div style={{ height: 4, borderRadius: 99, background: 'oklch(1 0 0 / 0.06)', overflow: 'hidden' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(100, (p.value / p.max) * 100)}%` }}
+                  transition={{ duration: 0.7, delay: 0.2 + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ height: '100%', background: `linear-gradient(90deg, oklch(0.85 0.16 ${p.hue}), oklch(0.65 0.20 ${p.hue + 30}))` }}
+                />
+              </div>
+            </div>
+          ))}
+          <div style={{ fontSize: 10, color: deltaColor, fontFamily: 'var(--font-mono)', marginTop: 4, letterSpacing: 1 }}>
+            {delta === 0 ? 'NO 7-DAY CHANGE' : `${delta > 0 ? '+' : ''}${delta} THIS WEEK`}
+          </div>
+        </div>
+      )}
     </WidgetShell>
   );
 };
@@ -239,27 +311,50 @@ const ScoreGauge: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
 const StreakCounter: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
   const { data } = useOp(profileOps.get, {});
   const streak = data?.streak ?? 0;
+  const isWide = size.w >= 2 || size.h >= 2;
+  // Last 7 days dots — placeholder pattern; will derive from
+  // habits ledger once we wire that.
+  const last7 = Array.from({ length: 7 }).map((_, i) => i < streak);
   return (
     <WidgetShell hue={40} icon="flame" label="Streak" size={size} onOpen={onOpen}
-      accent={<Chip tone="warn" size="sm">{streak === 0 ? 'NEW' : streak === 1 ? 'D 1' : `D ${streak}`}</Chip>}
+      accent={<Chip tone="warn" size="sm">{streak === 0 ? 'NEW' : `D ${streak}`}</Chip>}
     >
       <motion.div
         animate={{ rotate: [0, -4, 4, 0] }}
         transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 3 }}
-        style={{ position: 'absolute', top: 38, right: 12, opacity: 0.18 }}
+        style={{ position: 'absolute', top: 38, right: 12, opacity: 0.16 }}
       >
-        <I.flame size={48} stroke="oklch(0.85 0.18 40)" />
+        <I.flame size={size.w >= 2 && size.h >= 2 ? 96 : 48} stroke="oklch(0.85 0.18 40)" />
       </motion.div>
       <HeroNumber value={streak} hue={40} size={size} gradient={[60, 20]} />
       <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 6, fontFamily: 'var(--font-mono)' }}>
         {streak === 1 ? 'day · personal best' : 'days · personal best'}
       </div>
+      {isWide && (
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--hairline)' }}>
+          <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
+            LAST 7 DAYS
+          </div>
+          <div style={{ display: 'flex', gap: 4 }}>
+            {last7.map((on, i) => (
+              <div key={i} style={{
+                flex: 1, height: 18, borderRadius: 4,
+                background: on
+                  ? 'linear-gradient(180deg, oklch(0.85 0.18 40), oklch(0.65 0.22 25))'
+                  : 'oklch(0.78 0.16 40 / 0.10)',
+                border: `1px solid oklch(0.78 0.16 40 / ${on ? 0.6 : 0.20})`,
+              }} />
+            ))}
+          </div>
+        </div>
+      )}
     </WidgetShell>
   );
 };
 
 const NextEvent: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
-  const { data: evts = [] } = useOp(eventsOps.list, { limit: 1 });
+  const isLarge = size.w >= 2 && size.h >= 2;
+  const { data: evts = [] } = useOp(eventsOps.list, { limit: isLarge ? 5 : 1 });
   const e = evts[0];
   const hue = 280;
   const when = e?.occurs_at ? new Date(e.occurs_at) : null;
@@ -269,17 +364,40 @@ const NextEvent: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
     >
       {e ? (
         <>
-          <div className="display" style={{ fontSize: size.w === 2 ? 17 : 14, fontWeight: 500, color: 'var(--fg-1)', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
+          <div className="display" style={{ fontSize: size.w >= 2 ? (isLarge ? 18 : 17) : 14, fontWeight: 500, color: 'var(--fg-1)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 4 }}>
             {e.title}
           </div>
           {e.body && (
-            <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: isLarge ? 4 : 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
               {e.body}
             </div>
           )}
           {e.location && (
             <div style={{ marginTop: 6, fontSize: 10, color: `oklch(0.85 0.16 ${hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
               📍 {e.location.toUpperCase()}
+            </div>
+          )}
+          {/* Hero size: show the next 3-4 events stacked */}
+          {isLarge && evts.length > 1 && (
+            <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--hairline)' }}>
+              <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
+                UPCOMING · {evts.length - 1} MORE
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {evts.slice(1, size.h === 3 ? 5 : 3).map((ev) => {
+                  const t = ev.occurs_at ? new Date(ev.occurs_at) : null;
+                  return (
+                    <div key={ev.id} style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 11 }}>
+                      <span style={{ color: `oklch(0.85 0.14 ${hue})`, fontFamily: 'var(--font-mono)', minWidth: 60, fontSize: 9 }}>
+                        {t ? t.toLocaleString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }) : '—'}
+                      </span>
+                      <span style={{ color: 'var(--fg-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ev.title}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           )}
         </>
@@ -296,6 +414,7 @@ const FamilyPulse: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
   const { data: members = [] } = useOp(circleOps.list, {});
   const online = members.filter((m) => m.status === 'online').length;
   const hue = 150;
+  const isLarge = size.w >= 2 && size.h >= 2;
   return (
     <WidgetShell hue={hue} icon="family" label="Family circle" size={size} onOpen={onOpen}
       accent={online > 0 ? <Chip tone="ok" size="sm">{online} ONLINE</Chip> : undefined}
@@ -308,28 +427,50 @@ const FamilyPulse: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
               {members.length === 1 ? 'member' : 'members'}
             </span>
           </div>
-          <div style={{ display: 'flex', gap: -6, marginTop: 4 }}>
-            {members.slice(0, 6).map((m, i) => (
-              <motion.div
-                key={m.id}
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.4, delay: 0.1 + i * 0.06 }}
-                style={{
+          {/* Compact stacked avatars at small sizes */}
+          {!isLarge && (
+            <div style={{ display: 'flex', marginTop: 4 }}>
+              {members.slice(0, 6).map((m, i) => (
+                <div key={m.id} style={{
                   width: 26, height: 26, borderRadius: '50%',
                   background: `linear-gradient(135deg, oklch(0.85 0.18 ${m.hue}), oklch(0.55 0.22 ${m.hue + 30}))`,
                   border: '1.5px solid var(--bg)',
                   fontSize: 11, fontWeight: 600, color: '#06060a',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   marginLeft: i === 0 ? 0 : -6,
-                  position: 'relative',
                   boxShadow: m.status === 'online' ? `0 0 0 2px oklch(0.78 0.18 145)` : undefined,
-                }}
-              >
-                {m.name.charAt(0).toUpperCase()}
-              </motion.div>
-            ))}
-          </div>
+                }}>
+                  {m.name.charAt(0).toUpperCase()}
+                </div>
+              ))}
+            </div>
+          )}
+          {/* Full member list at hero sizes */}
+          {isLarge && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflow: 'hidden' }}>
+              {members.slice(0, size.h === 3 ? 8 : 5).map((m) => (
+                <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                    background: `linear-gradient(135deg, oklch(0.85 0.18 ${m.hue}), oklch(0.55 0.22 ${m.hue + 30}))`,
+                    fontSize: 12, fontWeight: 600, color: '#06060a',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: m.status === 'online' ? `0 0 0 2px oklch(0.78 0.18 145)` : undefined,
+                  }}>
+                    {m.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {m.name}
+                    </div>
+                    <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1, textTransform: 'uppercase' }}>
+                      {m.relation} · {m.status}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       ) : (
         <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4, lineHeight: 1.4 }}>
@@ -609,20 +750,60 @@ const HabitsToday: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
     .map((h) => ({ h, pct: h.done / h.target }))
     .sort((a, b) => b.pct - a.pct)[0]?.h;
   const hue = 150;
+  const isLarge = size.w >= 2 && size.h >= 2;
   return (
     <WidgetShell hue={hue} icon="check" label="Today's rituals" size={size} onOpen={onOpen}
       accent={total > 0 && done === total ? <Chip tone="ok" size="sm">ALL DONE</Chip> : <Chip tone="default" size="sm">{done}/{total}</Chip>}
     >
-      {closest ? (
+      {/* Hero size — full habit list with rings */}
+      {isLarge && habits.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 400, overflow: 'hidden' }}>
+          {habits.slice(0, size.h === 3 ? 8 : 5).map((h) => {
+            const Ic = I[h.icon as keyof typeof I] ?? I.check;
+            const pct = Math.min(1, h.done / h.target);
+            const isComplete = h.done >= h.target;
+            return (
+              <div key={h.id} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: 7, flexShrink: 0,
+                  background: `oklch(0.78 0.16 ${h.hue} / ${isComplete ? 0.30 : 0.15})`,
+                  border: `1px solid oklch(0.78 0.16 ${h.hue} / ${isComplete ? 0.6 : 0.30})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Ic size={12} stroke={`oklch(0.92 0.14 ${h.hue})`} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 3 }}>
+                    <span style={{ fontSize: 12, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {h.name}
+                    </span>
+                    <span style={{ fontSize: 10, color: `oklch(0.85 0.14 ${h.hue})`, fontFamily: 'var(--font-mono)', flexShrink: 0, marginLeft: 6 }}>
+                      {h.done}/{h.target}
+                    </span>
+                  </div>
+                  <div style={{ height: 3, borderRadius: 99, background: 'oklch(1 0 0 / 0.06)', overflow: 'hidden' }}>
+                    <div style={{ width: `${pct * 100}%`, height: '100%', background: `oklch(0.85 0.16 ${h.hue})` }} />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {habits.length > (size.h === 3 ? 8 : 5) && (
+            <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1, textAlign: 'center', marginTop: 2 }}>
+              + {habits.length - (size.h === 3 ? 8 : 5)} more
+            </div>
+          )}
+        </div>
+      ) : closest ? (
         <>
           <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 4 }}>
             CLOSEST · TAP TO COMPLETE
           </div>
-          <div className="display" style={{ fontSize: size.w === 2 ? 18 : 14, fontWeight: 500, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="display" style={{ fontSize: size.w >= 2 ? 18 : 14, fontWeight: 500, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {closest.name}
           </div>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
-            <span className="display" style={{ fontSize: size.w === 2 ? 24 : 18, fontWeight: 600, color: `oklch(0.92 0.14 ${closest.hue})`, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+            <span className="display" style={{ fontSize: size.w >= 2 ? 24 : 18, fontWeight: 600, color: `oklch(0.92 0.14 ${closest.hue})`, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
               {closest.done}
             </span>
             <span style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>/ {closest.target} {closest.unit}</span>
