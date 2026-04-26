@@ -16,6 +16,23 @@ This file is auto-loaded into context at session start via the wiki + linked fro
 
 ## Open
 
+### 2026-04-26 · Widget grid should support 1/2/3 (9 size combinations) + drag-resize is choppy
+"Even the dragging resizing is choppy and not working sometimes, is there any issue with performance, we need to handle that too. And I think the size options we gave are less make it all combinations of 1,2,3."
+- Expand grid: 3 columns instead of 2; allow w ∈ {1,2,3} and h ∈ {1,2,3} → 9 valid shapes (1×1, 1×2, 1×3, 2×1, 2×2, 2×3, 3×1, 3×2, 3×3).
+- DB constraints (`w int between 1 and 2`) need a migration.
+- Zod schemas need bumping.
+- Edge-drag handlers need throttling — currently they recompute every pointermove without rAF, causing dropped frames.
+- Test on touch + mouse for smoothness.
+
+### 2026-04-26 · Widget library covers only ~14 of ~59 features
+The app has 59 screens but the widget library exposes only ~14 widget types. The user pushed back: "We almost have 59 features — make a note of this. Each and every screen should be perfect and awesome." Expansion plan:
+- Phase 1 (fast): generate one library preset per `ItemKind` (30 kinds) — each card pre-configures the existing `list_preview` widget with a kind, icon, hue, label.
+- Phase 2: add dedicated widgets for screens with rich data: Money summary, Family ops pending, Cycle phase, Brief today, Network catch-up due, Doctors next-appt, Plants next-water, Pets status, Travel next-trip, Subscriptions due, Achievements recent.
+- Goal: every screen the user spends time on is one tap away on Home via a widget.
+
+### 2026-04-26 · Don't move to cloud / TestFlight without explicit user approval
+"Each and every screen should be perfect and awesome only then we are moving to cloud and other; till then we will be here and I am the one who will be finally approving to move anywhere." Stay local. Saved to memory as `feedback_user_approves_cloud.md`.
+
 ### 2026-04-26 · Hardcoded demo data still leaking — Arjun, level 27, streak 42, family 6 members
 Earlier seed-lie sweep stripped profile defaults to honest 0 but on refresh widgets still show: Streak 42, Family 6 members · 3 online, Active quest "Deep focus — 2 hrs no phone", Diary "Long morning, finally", Next event "A friend's birthday in 6 weeks". Source must be re-seed-on-load or something in seed-clean / dev-fixtures. **Find and strip.** Real users land on honest 0/empty state.
 

@@ -56,6 +56,90 @@ import type { LLMMessage, LLMToolCall } from '../lib/llm/types';
 
 const ALL_TYPES = Object.keys(WIDGET_TYPES) as WidgetType[];
 const TOOL_CATALOG = buildToolCatalog();
+
+// ── Library presets ────────────────────────────────────────────
+//
+// A library entry is either a single-instance widget type (Hydration,
+// Score, etc.) or a parameterized `list_preview` instance with a
+// pre-set ItemKind. This lets the library expose ~40 distinct cards
+// out of 14 underlying widget types — every feature in the app
+// becomes one tap away on Home.
+
+type LibraryPreset = {
+  /** Stable id for dnd. */
+  id: string;
+  /** Underlying widget type to install. */
+  widgetType: WidgetType;
+  /** Per-instance config to seed at install time. */
+  config: Record<string, unknown>;
+  /** Display label in the library card. */
+  label: string;
+  /** Description shown beneath the label. */
+  description: string;
+  /** I[icon] key. */
+  icon: keyof typeof I;
+  /** Theme hue for the card + installed widget. */
+  hue: number;
+};
+
+// Per-ItemKind list_preview presets — each maps to a real screen.
+const KIND_PRESETS: LibraryPreset[] = [
+  // Health
+  { id: 'k:nutrition',  widgetType: 'list_preview', config: { kind: 'nutrition'  }, label: 'Nutrition log',     description: 'Today\'s meals + macros.',           icon: 'flame',    hue: 30  },
+  { id: 'k:symptoms',   widgetType: 'list_preview', config: { kind: 'symptoms'   }, label: 'Symptoms',           description: 'Recent flags worth tracking.',       icon: 'heart',    hue: 0   },
+  { id: 'k:doctor',     widgetType: 'list_preview', config: { kind: 'doctor'     }, label: 'Doctors',            description: 'Appointments + contacts.',           icon: 'heart',    hue: 350 },
+  // Mind
+  { id: 'k:reading',    widgetType: 'list_preview', config: { kind: 'reading'    }, label: 'Reading list',       description: 'Books + articles in progress.',      icon: 'book',     hue: 280 },
+  { id: 'k:learning',   widgetType: 'list_preview', config: { kind: 'learning'   }, label: 'Learning',           description: 'Courses + skills you\'re building.', icon: 'brain',    hue: 250 },
+  { id: 'k:gratitude',  widgetType: 'list_preview', config: { kind: 'gratitude'  }, label: 'Gratitude',          description: 'Things you\'re grateful for.',       icon: 'sparkle',  hue: 320 },
+  { id: 'k:goal',       widgetType: 'list_preview', config: { kind: 'goal'       }, label: 'Goals',              description: 'Active goals + next steps.',         icon: 'target',   hue: 200 },
+  { id: 'k:reflection', widgetType: 'list_preview', config: { kind: 'reflection' }, label: 'Reflections',        description: 'Open prompts + answers.',            icon: 'sparkle',  hue: 290 },
+  { id: 'k:language',   widgetType: 'list_preview', config: { kind: 'language_deck' }, label: 'Language decks',  description: 'Vocab decks + review queue.',        icon: 'book',     hue: 260 },
+  // People
+  { id: 'k:friend',     widgetType: 'list_preview', config: { kind: 'friend'     }, label: 'Friends',            description: 'People to keep in touch with.',      icon: 'family',   hue: 150 },
+  { id: 'k:pet',        widgetType: 'list_preview', config: { kind: 'pet'        }, label: 'Pets',               description: 'Vet, food, grooming.',               icon: 'heart',    hue: 35  },
+  { id: 'k:birthday',   widgetType: 'list_preview', config: { kind: 'birthday'   }, label: 'Birthdays',          description: 'Upcoming birthdays.',                icon: 'sparkle',  hue: 300 },
+  { id: 'k:contact',    widgetType: 'list_preview', config: { kind: 'contact'    }, label: 'Network',            description: 'People to reach out to.',            icon: 'family',   hue: 220 },
+  // Money
+  { id: 'k:bill',          widgetType: 'list_preview', config: { kind: 'bill'         }, label: 'Bills due',       description: 'Upcoming bills + autopay status.',   icon: 'flame',  hue: 0   },
+  { id: 'k:subscription',  widgetType: 'list_preview', config: { kind: 'subscription' }, label: 'Subscriptions',   description: 'Recurring charges + renewals.',      icon: 'grid',   hue: 240 },
+  { id: 'k:investment',    widgetType: 'list_preview', config: { kind: 'investment'   }, label: 'Investments',     description: 'Holdings + check-in cadence.',       icon: 'sparkle', hue: 140 },
+  { id: 'k:receipt',       widgetType: 'list_preview', config: { kind: 'receipt'      }, label: 'Receipts',        description: 'Recent saved receipts.',             icon: 'book',   hue: 60  },
+  // Home & errands
+  { id: 'k:shopping',      widgetType: 'list_preview', config: { kind: 'shopping'        }, label: 'Shopping list',  description: 'Things to buy.',                   icon: 'grid',   hue: 200 },
+  { id: 'k:recipe',        widgetType: 'list_preview', config: { kind: 'recipe'          }, label: 'Recipes',        description: 'Saved + queued recipes.',          icon: 'book',   hue: 25  },
+  { id: 'k:maintenance',   widgetType: 'list_preview', config: { kind: 'home_maintenance'}, label: 'Maintenance',    description: 'Tasks for the home.',              icon: 'check',  hue: 60  },
+  { id: 'k:plant',         widgetType: 'list_preview', config: { kind: 'plant'           }, label: 'Plants',         description: 'Watering + care notes.',           icon: 'check',  hue: 130 },
+  { id: 'k:wardrobe',      widgetType: 'list_preview', config: { kind: 'wardrobe'        }, label: 'Wardrobe',       description: 'What you wore + outfits.',         icon: 'grid',   hue: 280 },
+  // Memory
+  { id: 'k:trip',          widgetType: 'list_preview', config: { kind: 'trip'         }, label: 'Travel',          description: 'Trips planned + memories.',         icon: 'sparkle', hue: 200 },
+  { id: 'k:achievement',   widgetType: 'list_preview', config: { kind: 'achievement'  }, label: 'Achievements',    description: 'Wins worth keeping.',               icon: 'sparkle', hue: 50  },
+  { id: 'k:bucket',        widgetType: 'list_preview', config: { kind: 'bucket_list'  }, label: 'Bucket list',     description: 'Things you want to do someday.',    icon: 'sparkle', hue: 320 },
+  { id: 'k:capsule',       widgetType: 'list_preview', config: { kind: 'time_capsule' }, label: 'Time capsule',    description: 'Notes to your future self.',        icon: 'book',    hue: 220 },
+  { id: 'k:photo',         widgetType: 'list_preview', config: { kind: 'photo'        }, label: 'Photos',          description: 'Recently saved photos.',            icon: 'grid',    hue: 290 },
+  // Work
+  { id: 'k:project',       widgetType: 'list_preview', config: { kind: 'project'      }, label: 'Projects',        description: 'Active work projects.',             icon: 'grid',    hue: 220 },
+  { id: 'k:side_project',  widgetType: 'list_preview', config: { kind: 'side_project' }, label: 'Side projects',   description: 'After-hours building.',              icon: 'sparkle', hue: 270 },
+  { id: 'k:career',        widgetType: 'list_preview', config: { kind: 'career_note'  }, label: 'Career notes',    description: 'Wins, asks, performance.',          icon: 'book',    hue: 240 },
+];
+
+// Single-instance widgets get one preset each (config is empty).
+const SINGLE_PRESETS: LibraryPreset[] = ALL_TYPES
+  .filter((t) => t !== 'list_preview')
+  .map((t) => {
+    const def = WIDGET_TYPES[t];
+    return {
+      id: `t:${t}`,
+      widgetType: t,
+      config: {},
+      label: def.label,
+      description: def.description,
+      icon: def.icon,
+      hue: def.hue,
+    };
+  });
+
+const ALL_PRESETS: LibraryPreset[] = [...SINGLE_PRESETS, ...KIND_PRESETS];
 const SYSTEM_PROMPT = `You manage the user's home-screen widgets. Use widgets.install / widgets.move / widgets.resize / widgets.remove to do exactly what the user asks.
 
 WIDGET GRID RULES (mirror what the playground enforces):
@@ -88,7 +172,7 @@ export default function WidgetsScreen(_p: ScreenProps) {
   const [aiNote, setAiNote] = React.useState<string | null>(null);
   const [hasReset, setHasReset] = React.useState(false);
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
-  const [draggingFromLibrary, setDraggingFromLibrary] = React.useState<WidgetType | null>(null);
+  const [draggingFromLibrary, setDraggingFromLibrary] = React.useState<LibraryPreset | null>(null);
   const [selectedId, setSelectedId] = React.useState<string | null>(null);
   // Optimistic order — when user drags-to-reorder we apply locally first
   // so the DOM reflows without waiting for the round-trip to Supabase.
@@ -118,13 +202,14 @@ export default function WidgetsScreen(_p: ScreenProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const onAdd = async (type: WidgetType, position?: number) => {
-    const def = WIDGET_TYPES[type];
+  const onAdd = async (preset: LibraryPreset, position?: number) => {
+    const def = WIDGET_TYPES[preset.widgetType];
     await install.mutateAsync({
-      widgetType: type,
+      widgetType: preset.widgetType,
       position,
       w: def.defaultSize.w,
       h: def.defaultSize.h,
+      config: preset.config,
     });
   };
 
@@ -141,7 +226,8 @@ export default function WidgetsScreen(_p: ScreenProps) {
   const onDragStart = (e: DragStartEvent) => {
     const id = String(e.active.id);
     if (id.startsWith('lib:')) {
-      setDraggingFromLibrary(id.slice(4) as WidgetType);
+      const preset = ALL_PRESETS.find((p) => p.id === id.slice(4));
+      if (preset) setDraggingFromLibrary(preset);
     } else {
       setDraggingId(id);
     }
@@ -157,10 +243,12 @@ export default function WidgetsScreen(_p: ScreenProps) {
 
     // Library → canvas: install at target slot's position.
     if (activeId.startsWith('lib:')) {
-      const type = activeId.slice(4) as WidgetType;
+      const presetId = activeId.slice(4);
+      const preset = ALL_PRESETS.find((p) => p.id === presetId);
+      if (!preset) return;
       const overWidget = list.find((w) => w.id === overId);
       const insertAt = overWidget ? overWidget.position : list.length;
-      await onAdd(type, insertAt);
+      await onAdd(preset, insertAt);
       return;
     }
 
@@ -270,8 +358,8 @@ export default function WidgetsScreen(_p: ScreenProps) {
 
         {/* LIBRARY */}
         <Library
-          installedTypes={new Set(visibleList.map((w) => w.widget_type as WidgetType))}
-          onTap={(t) => onAdd(t)}
+          installed={visibleList}
+          onTap={(p) => onAdd(p)}
           installPending={install.isPending}
         />
 
@@ -279,7 +367,7 @@ export default function WidgetsScreen(_p: ScreenProps) {
           {draggingId ? (
             <DragGhost widget={visibleList.find((w) => w.id === draggingId)!} />
           ) : draggingFromLibrary ? (
-            <LibraryGhost type={draggingFromLibrary} />
+            <LibraryGhost preset={draggingFromLibrary} />
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -582,19 +670,18 @@ const DragGhost: React.FC<{ widget: Widget }> = ({ widget }) => {
   );
 };
 
-const LibraryGhost: React.FC<{ type: WidgetType }> = ({ type }) => {
-  const def = WIDGET_TYPES[type];
-  const Ic = I[def.icon] ?? I.sparkle;
+const LibraryGhost: React.FC<{ preset: LibraryPreset }> = ({ preset }) => {
+  const Ic = I[preset.icon] ?? I.sparkle;
   return (
     <div className="glass" style={{
       padding: 12, width: 200, transform: 'rotate(-3deg)',
       boxShadow: '0 16px 50px -10px oklch(0 0 0 / 0.6)',
-      background: `linear-gradient(135deg, oklch(0.78 0.16 ${def.hue} / 0.20), transparent 80%)`,
-      borderColor: `oklch(0.78 0.16 ${def.hue} / 0.4)`,
+      background: `linear-gradient(135deg, oklch(0.78 0.16 ${preset.hue} / 0.20), transparent 80%)`,
+      borderColor: `oklch(0.78 0.16 ${preset.hue} / 0.4)`,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Ic size={14} stroke={`oklch(0.92 0.14 ${def.hue})`} />
-        <span style={{ fontSize: 12, fontWeight: 500 }}>{def.label}</span>
+        <Ic size={14} stroke={`oklch(0.92 0.14 ${preset.hue})`} />
+        <span style={{ fontSize: 12, fontWeight: 500 }}>{preset.label}</span>
       </div>
     </div>
   );
@@ -603,13 +690,20 @@ const LibraryGhost: React.FC<{ type: WidgetType }> = ({ type }) => {
 // ── Library ────────────────────────────────────────────────────
 
 const Library: React.FC<{
-  installedTypes: Set<WidgetType>;
-  onTap: (t: WidgetType) => void;
+  installed: Widget[];
+  onTap: (p: LibraryPreset) => void;
   installPending: boolean;
-}> = ({ installedTypes, onTap, installPending }) => {
-  // List_preview can be added multiple times; everything else is a
-  // single-instance widget, hidden from the library once installed.
-  const available = ALL_TYPES.filter((t) => !installedTypes.has(t) || t === 'list_preview');
+}> = ({ installed, onTap, installPending }) => {
+  // Single-instance widgets disappear from the library once installed.
+  // Per-kind list_preview presets stay visible unless the user has
+  // already installed that exact (widget_type, config.kind) pair.
+  const installedKeys = new Set(
+    installed.map((w) => `${w.widget_type}:${(w.config as { kind?: string })?.kind ?? ''}`),
+  );
+  const available = ALL_PRESETS.filter((p) => {
+    const key = `${p.widgetType}:${(p.config as { kind?: string })?.kind ?? ''}`;
+    return !installedKeys.has(key);
+  });
 
   return (
     <div style={{ marginBottom: 22 }}>
@@ -617,12 +711,12 @@ const Library: React.FC<{
         LIBRARY · {available.length} AVAILABLE · TAP OR DRAG INTO CANVAS
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {available.map((t) => (
-          <DraggableLibraryItem key={t} type={t} onTap={() => onTap(t)} disabled={installPending} />
+        {available.map((p) => (
+          <DraggableLibraryItem key={p.id} preset={p} onTap={() => onTap(p)} disabled={installPending} />
         ))}
         {available.length === 0 && (
           <div style={{ gridColumn: 'span 2', fontSize: 12, color: 'var(--fg-3)', padding: 12, textAlign: 'center' }}>
-            All widget types installed. Remove one to free a slot, or add a List preview.
+            Every widget type and list is on your canvas already. Remove one to swap.
           </div>
         )}
       </div>
@@ -631,13 +725,14 @@ const Library: React.FC<{
 };
 
 const DraggableLibraryItem: React.FC<{
-  type: WidgetType;
+  preset: LibraryPreset;
   onTap: () => void;
   disabled: boolean;
-}> = ({ type, onTap, disabled }) => {
-  const def = WIDGET_TYPES[type];
-  const Ic = I[def.icon] ?? I.sparkle;
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `lib:${type}` });
+}> = ({ preset, onTap, disabled }) => {
+  const def = WIDGET_TYPES[preset.widgetType];
+  const Ic = I[preset.icon] ?? I.sparkle;
+  const hue = preset.hue;
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `lib:${preset.id}` });
   return (
     <button
       ref={setNodeRef}
@@ -648,10 +743,10 @@ const DraggableLibraryItem: React.FC<{
         position: 'relative', overflow: 'hidden',
         padding: 14, textAlign: 'left', cursor: 'grab',
         background: `
-          radial-gradient(ellipse 70% 50% at 100% 0%, oklch(0.78 0.16 ${def.hue} / 0.22), transparent 65%),
-          linear-gradient(135deg, oklch(0.20 0.04 ${def.hue} / 0.40), oklch(0.12 0.02 260 / 0.30) 70%)
+          radial-gradient(ellipse 70% 50% at 100% 0%, oklch(0.78 0.16 ${hue} / 0.22), transparent 65%),
+          linear-gradient(135deg, oklch(0.20 0.04 ${hue} / 0.40), oklch(0.12 0.02 260 / 0.30) 70%)
         `,
-        borderColor: `oklch(0.78 0.16 ${def.hue} / 0.32)`,
+        borderColor: `oklch(0.78 0.16 ${hue} / 0.32)`,
         display: 'flex', flexDirection: 'column', gap: 8,
         opacity: isDragging ? 0.4 : 1,
         touchAction: 'manipulation',
@@ -663,7 +758,7 @@ const DraggableLibraryItem: React.FC<{
       {/* Ambient halo */}
       <div aria-hidden style={{
         position: 'absolute', top: -20, right: -20, width: 90, height: 90, borderRadius: '50%',
-        background: `radial-gradient(circle, oklch(0.78 0.16 ${def.hue} / 0.22) 0%, transparent 70%)`,
+        background: `radial-gradient(circle, oklch(0.78 0.16 ${hue} / 0.22) 0%, transparent 70%)`,
         pointerEvents: 'none',
       }} />
 
@@ -671,9 +766,9 @@ const DraggableLibraryItem: React.FC<{
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative', zIndex: 1 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 10,
-          background: `linear-gradient(135deg, oklch(0.78 0.16 ${def.hue}), oklch(0.55 0.22 ${(def.hue + 40) % 360}))`,
+          background: `linear-gradient(135deg, oklch(0.78 0.16 ${hue}), oklch(0.55 0.22 ${(def.hue + 40) % 360}))`,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: `0 6px 16px -4px oklch(0.78 0.16 ${def.hue} / 0.45)`,
+          boxShadow: `0 6px 16px -4px oklch(0.78 0.16 ${hue} / 0.45)`,
           flexShrink: 0,
         }}>
           <Ic size={16} stroke="#06060a" sw={2.2} />
@@ -682,7 +777,7 @@ const DraggableLibraryItem: React.FC<{
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {def.label}
           </div>
-          <div style={{ fontSize: 9, color: `oklch(0.85 0.13 ${def.hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1.5 }}>
+          <div style={{ fontSize: 9, color: `oklch(0.85 0.13 ${hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1.5 }}>
             {def.defaultSize.w}×{def.defaultSize.h} · ALL SIZES
           </div>
         </div>
@@ -696,11 +791,11 @@ const DraggableLibraryItem: React.FC<{
       {/* Footer hint */}
       <div style={{
         marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
-        fontSize: 9, color: `oklch(0.85 0.13 ${def.hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1.2,
+        fontSize: 9, color: `oklch(0.85 0.13 ${hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1.2,
         position: 'relative', zIndex: 1,
       }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <I.plus size={10} stroke={`oklch(0.85 0.13 ${def.hue})`} sw={2.2} /> ADD
+          <I.plus size={10} stroke={`oklch(0.85 0.13 ${hue})`} sw={2.2} /> ADD
         </span>
         <span style={{ opacity: 0.6 }}>DRAG TO PLACE</span>
       </div>
