@@ -396,22 +396,360 @@ const investment: KindProfile = {
   },
 };
 
+// ── Remaining 17 domains ──────────────────────────────────────
+
+const doctor: KindProfile = {
+  noun: 'doctor',
+  headerStats: (items) => {
+    const upcoming = items.filter((i) => {
+      const d = daysUntil(i.occurs_at);
+      return d != null && d >= 0;
+    }).length;
+    return [
+      { label: 'CONTACTS', value: String(items.length), hue: 350 },
+      { label: 'UPCOMING', value: String(upcoming), hue: upcoming > 0 ? 25 : 150 },
+    ];
+  },
+  row: (item) => {
+    const d = daysUntil(item.occurs_at);
+    const specialty = meta<string>(item, 'specialty');
+    return {
+      badge: d != null ? (d < 0 ? 'past' : d === 0 ? 'TODAY' : `${d}d`) : undefined,
+      sub: specialty ? <span>{specialty}</span> : undefined,
+      tone: d != null && d <= 7 && d >= 0 ? 'soon' : 'default',
+    };
+  },
+  addExtras: ({ meta, setMeta, hue }) => (
+    <input
+      placeholder="specialty"
+      value={(meta.specialty as string) ?? ''}
+      onChange={(e) => setMeta({ ...meta, specialty: e.target.value })}
+      style={miniInput(hue)}
+    />
+  ),
+};
+
+const gratitude: KindProfile = {
+  noun: 'gratitude',
+  headerStats: (items) => {
+    const today = items.filter((i) => isToday(i.created_at)).length;
+    const week = items.filter((i) => isWithin(i.created_at, 7)).length;
+    return [
+      { label: 'TODAY', value: String(today), hue: 320 },
+      { label: 'THIS WEEK', value: String(week), hue: 290 },
+      { label: 'TOTAL', value: String(items.length), hue: 220 },
+    ];
+  },
+  row: (item) => ({
+    inlineIcon: 'sparkle',
+    sub: item.body ? <span>{item.body.slice(0, 80)}{item.body.length > 80 ? '…' : ''}</span> : undefined,
+  }),
+};
+
+const reflection: KindProfile = {
+  noun: 'reflection',
+  headerStats: (items) => {
+    const open = items.filter((i) => i.status !== 'done').length;
+    return [
+      { label: 'OPEN PROMPTS', value: String(open), hue: 290 },
+      { label: 'ANSWERED', value: String(items.length - open), hue: 150 },
+    ];
+  },
+  row: (item) => ({
+    sub: item.body ? <span>answered</span> : <span style={{ color: 'oklch(0.85 0.14 290)' }}>tap to answer</span>,
+  }),
+};
+
+const language_deck: KindProfile = {
+  noun: 'deck',
+  headerStats: (items) => {
+    const totalCards = items.reduce((s, i) => s + (Number(meta(i, 'cards') ?? 0) || 0), 0);
+    const dueCards = items.reduce((s, i) => s + (Number(meta(i, 'due') ?? 0) || 0), 0);
+    return [
+      { label: 'DECKS', value: String(items.length), hue: 260 },
+      ...(totalCards ? [{ label: 'CARDS', value: String(totalCards), hue: 200 }] : []),
+      ...(dueCards ? [{ label: 'DUE', value: String(dueCards), hue: dueCards > 0 ? 25 : 150 }] : []),
+    ];
+  },
+  row: (item) => {
+    const due = meta<number>(item, 'due');
+    const cards = meta<number>(item, 'cards');
+    return {
+      badge: due != null && due > 0 ? `${due} due` : cards != null ? `${cards} cards` : undefined,
+      tone: due != null && due > 10 ? 'soon' : 'default',
+      sub: meta<string>(item, 'language') ? <span>{meta<string>(item, 'language')}</span> : undefined,
+    };
+  },
+};
+
+const friend: KindProfile = {
+  noun: 'friend',
+  headerStats: (items) => {
+    const overdue = items.filter((i) => {
+      const last = meta<string>(i, 'lastContact');
+      const interval = meta<number>(i, 'cadenceDays') ?? 30;
+      if (!last) return true;
+      const since = (Date.now() - new Date(last).getTime()) / day;
+      return since >= interval;
+    }).length;
+    return [
+      { label: 'FRIENDS', value: String(items.length), hue: 150 },
+      { label: 'TIME TO MSG', value: String(overdue), hue: overdue > 0 ? 25 : 150 },
+    ];
+  },
+  row: (item) => {
+    const last = meta<string>(item, 'lastContact');
+    const interval = meta<number>(item, 'cadenceDays') ?? 30;
+    const sinceDays = last ? Math.floor((Date.now() - new Date(last).getTime()) / day) : null;
+    const overdue = sinceDays != null ? sinceDays - interval : null;
+    return {
+      badge: sinceDays != null ? `${sinceDays}d` : 'NEW',
+      tone: overdue != null && overdue > 0 ? 'soon' : 'default',
+      sub: last ? <span>last spoke {sinceDays}d ago</span> : <span>tap to log first contact</span>,
+    };
+  },
+};
+
+const pet: KindProfile = {
+  noun: 'pet',
+  headerStats: (items) => [
+    { label: 'PETS', value: String(items.length), hue: 35 },
+  ],
+  row: (item) => {
+    const species = meta<string>(item, 'species');
+    const age = meta<number>(item, 'age');
+    return {
+      badge: age != null ? `${age}y` : undefined,
+      sub: species ? <span>{species}{age != null ? ` · ${age} years` : ''}</span> : undefined,
+      inlineIcon: 'heart',
+    };
+  },
+  addExtras: ({ meta, setMeta, hue }) => (
+    <input
+      placeholder="species"
+      value={(meta.species as string) ?? ''}
+      onChange={(e) => setMeta({ ...meta, species: e.target.value })}
+      style={miniInput(hue)}
+    />
+  ),
+};
+
+const contact: KindProfile = {
+  noun: 'contact',
+  headerStats: (items) => [
+    { label: 'NETWORK', value: String(items.length), hue: 220 },
+  ],
+  row: (item) => ({
+    sub: meta<string>(item, 'role') || meta<string>(item, 'company')
+      ? <span>{meta<string>(item, 'role') ?? ''}{meta<string>(item, 'company') ? ` · ${meta<string>(item, 'company')}` : ''}</span>
+      : undefined,
+  }),
+  addExtras: ({ meta, setMeta, hue }) => (
+    <input
+      placeholder="role/co"
+      value={(meta.role as string) ?? ''}
+      onChange={(e) => setMeta({ ...meta, role: e.target.value })}
+      style={miniInput(hue)}
+    />
+  ),
+};
+
+const receipt: KindProfile = {
+  noun: 'receipt',
+  headerStats: (items) => {
+    const month = items.filter((i) => isWithin(i.created_at, 30));
+    const monthTotal = month.reduce((s, i) => s + (Number(meta(i, 'amount') ?? 0) || 0), 0);
+    return [
+      { label: 'TOTAL', value: String(items.length), hue: 60 },
+      { label: '30-DAY', value: String(month.length), hue: 240 },
+      ...(monthTotal ? [{ label: '30-DAY $', value: money(monthTotal) || '—', hue: 25 }] : []),
+    ];
+  },
+  row: (item) => {
+    const amt = meta<number>(item, 'amount');
+    const merchant = meta<string>(item, 'merchant');
+    return {
+      badge: amt != null ? money(amt) ?? undefined : undefined,
+      sub: merchant ? <span>{merchant}</span> : undefined,
+    };
+  },
+  addExtras: ({ meta, setMeta, hue }) => (
+    <input
+      placeholder="$"
+      type="number"
+      value={(meta.amount as number) ?? ''}
+      onChange={(e) => setMeta({ ...meta, amount: e.target.value ? Number(e.target.value) : undefined })}
+      style={{ ...miniInput(hue), width: 70 }}
+    />
+  ),
+};
+
+const home_maintenance: KindProfile = {
+  noun: 'task',
+  headerStats: (items) => {
+    const overdue = items.filter((i) => {
+      const d = daysUntil(i.occurs_at);
+      return d != null && d < 0 && i.status !== 'done';
+    }).length;
+    return [
+      { label: 'OPEN', value: String(items.filter((i) => i.status !== 'done').length), hue: 60 },
+      { label: 'OVERDUE', value: String(overdue), hue: overdue > 0 ? 25 : 150 },
+    ];
+  },
+  row: (item) => {
+    const d = daysUntil(item.occurs_at);
+    return {
+      badge: d != null ? (d < 0 ? `+${-d}d` : d === 0 ? 'TODAY' : `${d}d`) : undefined,
+      tone: d != null && d < 0 ? 'urgent' : d != null && d <= 3 ? 'soon' : 'default',
+    };
+  },
+};
+
+const wardrobe: KindProfile = {
+  noun: 'piece',
+  row: (item) => ({
+    sub: meta<string>(item, 'category') ? <span>{meta<string>(item, 'category')}</span> : undefined,
+    badge: meta<number>(item, 'wornCount') != null ? `×${meta<number>(item, 'wornCount')}` : undefined,
+  }),
+  addExtras: ({ meta, setMeta, hue }) => (
+    <input
+      placeholder="category"
+      value={(meta.category as string) ?? ''}
+      onChange={(e) => setMeta({ ...meta, category: e.target.value })}
+      style={miniInput(hue)}
+    />
+  ),
+};
+
+const achievement: KindProfile = {
+  noun: 'win',
+  headerStats: (items) => {
+    const month = items.filter((i) => isWithin(i.created_at, 30)).length;
+    const year = items.filter((i) => isWithin(i.created_at, 365)).length;
+    return [
+      { label: 'TOTAL', value: String(items.length), hue: 50 },
+      { label: '30-DAY', value: String(month), hue: 30 },
+      { label: 'YEAR', value: String(year), hue: 220 },
+    ];
+  },
+  row: (item) => ({
+    inlineIcon: 'sparkle',
+    sub: item.body ? <span>{item.body.slice(0, 80)}{item.body.length > 80 ? '…' : ''}</span> : undefined,
+    badge: item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short' }).toUpperCase() : undefined,
+  }),
+};
+
+const bucket_list: KindProfile = {
+  noun: 'dream',
+  headerStats: (items) => {
+    const done = items.filter((i) => i.status === 'done').length;
+    return [
+      { label: 'TO DO', value: String(items.length - done), hue: 320 },
+      { label: 'CHECKED', value: String(done), hue: 150 },
+    ];
+  },
+  row: (item) => ({
+    inlineIcon: 'sparkle',
+    badge: item.status === 'done' ? '✓' : undefined,
+    tone: item.status === 'done' ? 'ok' : 'default',
+  }),
+};
+
+const time_capsule: KindProfile = {
+  noun: 'capsule',
+  headerStats: (items) => {
+    const open = items.filter((i) => {
+      const d = daysUntil(meta<string>(i, 'openAt') ?? i.occurs_at);
+      return d != null && d >= 0;
+    }).length;
+    return [
+      { label: 'CAPSULES', value: String(items.length), hue: 220 },
+      { label: 'SEALED', value: String(open), hue: 280 },
+    ];
+  },
+  row: (item) => {
+    const openAt = meta<string>(item, 'openAt') ?? item.occurs_at;
+    const d = daysUntil(openAt);
+    return {
+      badge: d != null
+        ? (d < 0 ? 'OPEN' : d < 30 ? `${d}d` : d < 365 ? `${Math.round(d/30)}mo` : `${Math.round(d/365)}y`)
+        : 'SEALED',
+      sub: openAt ? <span>opens {new Date(openAt).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}</span> : undefined,
+    };
+  },
+};
+
+const photo: KindProfile = {
+  noun: 'photo',
+  headerStats: (items) => {
+    const month = items.filter((i) => isWithin(i.created_at, 30)).length;
+    return [
+      { label: 'PHOTOS', value: String(items.length), hue: 290 },
+      { label: '30-DAY', value: String(month), hue: 200 },
+    ];
+  },
+  row: (item) => ({
+    sub: meta<string>(item, 'caption') ? <span>{meta<string>(item, 'caption')}</span> : undefined,
+    badge: item.created_at ? new Date(item.created_at).toLocaleDateString(undefined, { month: 'short' }).toUpperCase() : undefined,
+  }),
+};
+
+const project: KindProfile = {
+  noun: 'project',
+  headerStats: (items) => {
+    const active = items.filter((i) => i.status !== 'done').length;
+    return [
+      { label: 'ACTIVE', value: String(active), hue: 220 },
+      { label: 'DONE', value: String(items.length - active), hue: 150 },
+    ];
+  },
+  row: (item) => {
+    const progress = meta<number>(item, 'progress');
+    return {
+      badge: progress != null ? `${Math.round(progress * 100)}%` : undefined,
+      sub: meta<string>(item, 'status_note') ? <span>{meta<string>(item, 'status_note')}</span> : undefined,
+    };
+  },
+};
+
+const side_project: KindProfile = {
+  noun: 'side project',
+  headerStats: (items) => [
+    { label: 'BUILDING', value: String(items.filter((i) => i.status !== 'done').length), hue: 270 },
+    { label: 'SHIPPED', value: String(items.filter((i) => i.status === 'done').length), hue: 150 },
+  ],
+  row: (item) => ({
+    inlineIcon: 'sparkle',
+    badge: meta<string>(item, 'stack') ?? undefined,
+    sub: meta<string>(item, 'url') ? <span>{meta<string>(item, 'url')}</span> : undefined,
+  }),
+};
+
+const career_note: KindProfile = {
+  noun: 'note',
+  headerStats: (items) => {
+    const month = items.filter((i) => isWithin(i.created_at, 30)).length;
+    return [
+      { label: 'NOTES', value: String(items.length), hue: 240 },
+      { label: '30-DAY', value: String(month), hue: 220 },
+    ];
+  },
+  row: (item) => ({
+    badge: meta<string>(item, 'kind') ?? undefined,
+    sub: item.body ? <span>{item.body.slice(0, 80)}{item.body.length > 80 ? '…' : ''}</span> : undefined,
+  }),
+};
+
 // ── Registry + getter ─────────────────────────────────────────
 
 export const KIND_PROFILES: Partial<Record<string, KindProfile>> = {
-  reading,
-  bill,
-  plant,
-  birthday,
-  subscription,
-  shopping,
-  recipe,
-  goal,
-  nutrition,
-  symptoms,
-  learning,
-  trip,
-  investment,
+  // Originals (13)
+  reading, bill, plant, birthday, subscription, shopping, recipe,
+  goal, nutrition, symptoms, learning, trip, investment,
+  // New (17)
+  doctor, gratitude, reflection, language_deck, friend, pet, contact,
+  receipt, home_maintenance, wardrobe, achievement, bucket_list,
+  time_capsule, photo, project, side_project, career_note,
 };
 
 const generic: KindProfile = {
