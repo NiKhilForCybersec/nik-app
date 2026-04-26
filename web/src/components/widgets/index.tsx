@@ -32,6 +32,7 @@ import {
 import { Chip } from '../primitives';
 import { I } from '../icons';
 import type { WidgetType } from '../../contracts/widgets';
+import { getKindProfile } from '../items/kindProfiles';
 
 // ── Common props every widget receives ─────────────────────
 
@@ -856,55 +857,111 @@ const ListPreview: React.FC<WidgetRenderProps<{ kind?: string; limit?: number }>
   const tier = getTier(size);
   const fetchLimit = tier === 'hero' ? 12 : tier === 'tall' ? 8 : 5;
   const { data: items = [] } = useOp(itemsOps.list, { kind, limit: config.limit ?? fetchLimit });
-  const open = items.filter((i) => i.status !== 'done');
-  const done = items.filter((i) => i.status === 'done').length;
-  const hue = 280;
-  // Lines vary with tier: mini=2, wide=3, tall=6, hero(2x2)=5, hero(2x3/3x3)=10
+  // Resolve the same KIND_PROFILES used by ItemsListScreen so widget +
+  // full screen agree on what's important per domain (header stats,
+  // per-row badge, label).
+  const profile = getKindProfile(kind);
+  const sortedItems = profile.sort ? [...items].sort(profile.sort) : items;
+  const open = sortedItems.filter((i) => i.status !== 'done');
+  const done = sortedItems.filter((i) => i.status === 'done').length;
+  // Hue from the matching library preset would be ideal; for now use a
+  // sensible default per kind via the closest hue we know.
+  const hue = KIND_HUE[kind] ?? 280;
   const lines = tier === 'mini' ? 2 : tier === 'wide' ? 3 : tier === 'tall' ? 6 : (size.h === 3 ? 10 : 5);
+  const headerStats = profile.headerStats?.(items) ?? [];
+  // Hero size + at least 2 stats → render the stat strip.
+  const showStats = (tier === 'hero' || tier === 'tall') && headerStats.length >= 2;
   return (
-    <WidgetShell hue={hue} icon="grid" label={kind} size={size} onOpen={onOpen}
+    <WidgetShell
+      hue={hue} icon="grid" label={profile.noun ? `${profile.noun}s` : kind}
+      size={size} onOpen={onOpen}
       accent={items.length > 0 ? <Chip tone="default" size="sm">{open.length} OPEN</Chip> : undefined}
     >
       {items.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4, lineHeight: 1.4 }}>
-          Empty {kind} list. <span style={{ color: `oklch(0.85 0.16 ${hue})` }}>Add an item →</span>
+          Empty {profile.noun ?? kind} list. <span style={{ color: `oklch(0.85 0.16 ${hue})` }}>Add one →</span>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {items.slice(0, lines).map((item, i) => (
-            <motion.div
-              key={item.id}
-              initial={{ opacity: 0, x: -4 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.05 + i * 0.04 }}
-              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}
-            >
-              <span style={{
-                width: 14, height: 14, borderRadius: 4,
-                border: `1.5px solid oklch(0.78 0.16 ${hue} / ${item.status === 'done' ? 0.4 : 0.7})`,
-                background: item.status === 'done' ? `oklch(0.78 0.16 ${hue} / 0.18)` : 'transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                {item.status === 'done' && <I.check size={9} stroke={`oklch(0.92 0.14 ${hue})`} sw={2.4} />}
-              </span>
-              <span style={{
-                color: item.status === 'done' ? 'var(--fg-3)' : 'var(--fg-1)',
-                textDecoration: item.status === 'done' ? 'line-through' : 'none',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
-              }}>
-                {item.title}
-              </span>
-            </motion.div>
-          ))}
-          {items.length > lines && (
+          {showStats && (
+            <div style={{ display: 'grid', gridTemplateColumns: `repeat(${headerStats.length}, 1fr)`, gap: 4, marginBottom: 4 }}>
+              {headerStats.map((s, i) => (
+                <div key={i} style={{
+                  padding: '4px 6px', borderRadius: 6, textAlign: 'center',
+                  background: `oklch(0.78 0.16 ${s.hue ?? hue} / 0.10)`,
+                  border: `1px solid oklch(0.78 0.16 ${s.hue ?? hue} / 0.20)`,
+                }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: `oklch(0.92 0.14 ${s.hue ?? hue})`, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                    {s.value}
+                  </div>
+                  <div style={{ fontSize: 7, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 0.6, marginTop: 1 }}>
+                    {s.label}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {sortedItems.slice(0, lines).map((item, i) => {
+            const accent = profile.row?.(item) ?? {};
+            const isDone = item.status === 'done';
+            return (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, x: -4 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.3, delay: 0.05 + i * 0.04 }}
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}
+              >
+                <span style={{
+                  width: 12, height: 12, borderRadius: 3,
+                  border: `1.5px solid oklch(0.78 0.16 ${hue} / ${isDone ? 0.4 : 0.7})`,
+                  background: isDone ? `oklch(0.78 0.16 ${hue} / 0.18)` : 'transparent',
+                  flexShrink: 0,
+                }} />
+                <span style={{
+                  color: isDone ? 'var(--fg-3)' : 'var(--fg-1)',
+                  textDecoration: isDone ? 'line-through' : 'none',
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+                }}>
+                  {item.title}
+                </span>
+                {/* Per-kind badge — same as ItemsListScreen row */}
+                {accent.badge && (
+                  <span style={{
+                    fontSize: 9, fontFamily: 'var(--font-mono)', fontWeight: 600,
+                    color: accent.tone === 'urgent' ? 'oklch(0.92 0.16 25)' : accent.tone === 'soon' ? 'oklch(0.92 0.14 60)' : `oklch(0.85 0.14 ${hue})`,
+                    flexShrink: 0,
+                  }}>
+                    {accent.badge}
+                  </span>
+                )}
+              </motion.div>
+            );
+          })}
+          {sortedItems.length > lines && (
             <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1, marginTop: 2 }}>
-              + {items.length - lines} MORE · {done} DONE
+              + {sortedItems.length - lines} MORE · {done} DONE
             </div>
           )}
         </div>
       )}
     </WidgetShell>
   );
+};
+
+// Kind → hue mapping. Mirrors KIND_PRESETS in WidgetsScreen so the
+// hue stays consistent across library card → installed widget.
+const KIND_HUE: Record<string, number> = {
+  nutrition: 30, symptoms: 0, doctor: 350,
+  reading: 280, learning: 250, gratitude: 320, goal: 200,
+  reflection: 290, language_deck: 260,
+  friend: 150, pet: 35, birthday: 300, contact: 220,
+  bill: 0, subscription: 240, investment: 140, receipt: 60,
+  shopping: 200, recipe: 25, home_maintenance: 60,
+  plant: 130, wardrobe: 280,
+  trip: 200, achievement: 50, bucket_list: 320,
+  time_capsule: 220, photo: 290,
+  project: 220, side_project: 270, career_note: 240,
 };
 
 const HabitsToday: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {

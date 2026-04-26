@@ -6,6 +6,7 @@ import { I } from '../components/icons';
 import { VoiceOrb, Waveform } from '../components/primitives';
 import { llm } from '../lib/llm';
 import { useCommand } from '../lib/useCommand';
+import { MarkdownText } from '../components/MarkdownText';
 import { useAuth } from '../lib/auth';
 import { useOp, useOpMutation } from '../lib/useOp';
 import { chat as chatOps } from '../contracts/chat';
@@ -227,7 +228,12 @@ export default function ChatScreen({ listening, onVoice, setState }: ScreenProps
               border: '1px solid ' + (m.from === 'user' ? 'oklch(0.78 0.16 var(--hue) / 0.3)' : 'var(--hairline)'),
               backdropFilter: 'blur(20px)',
               fontSize: 13, lineHeight: 1.5, color: 'var(--fg)',
-            }}>{m.text}</div>
+            }}>
+              {/* AI bubbles render markdown (LLM output is markdown by
+                  default — bold, lists, tables). User bubbles stay raw
+                  text since users type plain. */}
+              {m.from === 'ai' ? <MarkdownText text={m.text} /> : m.text}
+            </div>
             {m.toolCalls && (
               <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                 {m.toolCalls.map((t, j) => (
