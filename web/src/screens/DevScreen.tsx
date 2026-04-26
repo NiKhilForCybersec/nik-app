@@ -322,6 +322,8 @@ function DbPanel() {
 
 const screenSources = import.meta.glob('/src/screens/*Screen.tsx', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 const manifestSources = import.meta.glob('/src/screens/*Screen.manifest.ts', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const componentSources = import.meta.glob('/src/components/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
+const libSources = import.meta.glob('/src/lib/**/*.{ts,tsx}', { query: '?raw', import: 'default', eager: true }) as Record<string, string>;
 
 const RE = {
   useOp: /useOp\(\s*([\w.]+)/g,
@@ -583,19 +585,39 @@ function previewRow(r: Record<string, unknown>): string {
 // ── Graph (Cytoscape force-directed, free-play canvas) ────
 
 const NODE_COLORS = {
-  op:      { bg: 'oklch(0.78 0.16 220)', border: 'oklch(0.65 0.20 220)', label: 'OPS' },
-  cmd:     { bg: 'oklch(0.78 0.16 280)', border: 'oklch(0.65 0.20 280)', label: 'COMMANDS' },
-  screen:  { bg: 'oklch(0.78 0.16 60)',  border: 'oklch(0.65 0.20 60)',  label: 'SCREENS' },
-  table:   { bg: 'oklch(0.78 0.16 150)', border: 'oklch(0.65 0.20 150)', label: 'TABLES' },
+  app:        { bg: 'oklch(0.94 0.18 var(--hue))', border: 'oklch(0.78 0.20 var(--hue))', label: 'APP' },
+  ai:         { bg: 'oklch(0.85 0.22 320)',        border: 'oklch(0.65 0.25 320)',        label: 'AI' },
+  op:         { bg: 'oklch(0.78 0.16 220)',        border: 'oklch(0.65 0.20 220)',        label: 'OPS' },
+  cmd:        { bg: 'oklch(0.78 0.16 280)',        border: 'oklch(0.65 0.20 280)',        label: 'COMMANDS' },
+  screen:     { bg: 'oklch(0.78 0.16 60)',         border: 'oklch(0.65 0.20 60)',         label: 'SCREENS' },
+  component:  { bg: 'oklch(0.78 0.16 30)',         border: 'oklch(0.65 0.20 30)',         label: 'COMPONENTS' },
+  hook:       { bg: 'oklch(0.78 0.16 180)',        border: 'oklch(0.65 0.20 180)',        label: 'HOOKS' },
+  table:      { bg: 'oklch(0.78 0.16 150)',        border: 'oklch(0.65 0.20 150)',        label: 'TABLES' },
+} as const;
+
+const STATUS_COLORS = {
+  ok:    'oklch(0.78 0.18 150)',   // green — recent successful call
+  err:   'oklch(0.78 0.20 25)',    // red — recent failure
+  never: 'oklch(0.45 0.02 260)',   // gray — never called
 } as const;
 
 type GraphNodeKind = keyof typeof NODE_COLORS;
+type NodeHealth = keyof typeof STATUS_COLORS;
+
+function nodeHealth(opName: string, calls: readonly OpCallRecord[]): NodeHealth {
+  const recent = calls.find((c) => c.name === opName);
+  if (!recent) return 'never';
+  return recent.ok ? 'ok' : 'err';
+}
 
 function GraphPanel() {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const [filter, setFilter] = React.useState<Record<GraphNodeKind, boolean>>({
-    op: true, cmd: true, screen: true, table: true,
+    app: true, ai: true, op: true, cmd: true, screen: true, component: true, hook: true, table: true,
   });
+  // Re-render when call log updates so health colors stay current.
+  const [, force] = React.useReducer((x) => x + 1, 0);
+  React.useEffect(() => onOpCalls(force), []);
 
   React.useEffect(() => {
     if (!containerRef.current) return;
@@ -611,15 +633,55 @@ function GraphPanel() {
       const ops = Array.from(getOpRegistry().values());
       const cmds = Array.from(getCmdRegistry().values());
       const screens = Object.keys(screenSources).map((p) => p.split('/').pop()!.replace(/\.tsx$/, ''));
-
-      // Tables come from the static list used by DbPanel.
       const tables = TABLES;
+      const calls = recentOpCalls();
 
-      // Build edges:
-      //  - screen → op via manifest reads / writes
-      //  - screen → cmd via manifest commands
-      //  - op   → table via heuristic regex on the op handler source
+      // Discover frontend wiring nodes:
+      //   - Components: every exported symbol from /src/components/**/*
+      //   - Hooks: every exported symbol from /src/lib/**/* whose name starts with `use`
+      // Then build screen → component / screen → hook edges by scanning
+      // import statements in each screen source.
+      const components = new Map<string, { id: string; label: string; file: string }>();
+      const hooks = new Map<string, { id: string; label: string; file: string }>();
+      const nameRe = /export\s+(?:default\s+)?(?:const|function|class)\s+([A-Za-z_$][\w$]*)/g;
+
+      for (const [path, src] of Object.entries(componentSources)) {
+        const file = path.replace('/src/components/', '');
+        // Skip the icons map — too noisy.
+        if (file === 'icons.tsx') continue;
+        for (const m of src.matchAll(nameRe)) {
+          const name = m[1];
+          if (!components.has(name)) components.set(name, { id: `component:${name}`, label: name, file });
+        }
+      }
+      for (const [path, src] of Object.entries(libSources)) {
+        const file = path.replace('/src/lib/', '');
+        for (const m of src.matchAll(nameRe)) {
+          const name = m[1];
+          if (name.startsWith('use') && /^[A-Z]/.test(name[3] ?? '')) {
+            if (!hooks.has(name)) hooks.set(name, { id: `hook:${name}`, label: name, file });
+          }
+        }
+      }
+
+      // Build edges. The graph centres on two super-nodes:
+      //   APP  ── screen   (every screen lives inside the app)
+      //   AI   ── op + cmd (the AI can invoke every registered tool)
+      // Then the project-shape edges:
+      //   screen ── op  (manifest reads/writes)
+      //   screen ── cmd (manifest commands)
+      //   op     ── table (heuristic regex on handler source)
       const edges: { source: string; target: string; kind: string }[] = [];
+
+      // App → every screen
+      for (const s of screens) edges.push({ source: 'app:nik', target: `screen:${s}`, kind: 'contains' });
+
+      // AI → every op + command (AI can call any registered tool)
+      for (const o of ops)  edges.push({ source: 'ai:chat', target: `op:${o.name}`,  kind: 'tool' });
+      for (const c of cmds) edges.push({ source: 'ai:chat', target: `cmd:${c.name}`, kind: 'tool' });
+
+      // App → AI (the AI is mounted in the app)
+      edges.push({ source: 'app:nik', target: 'ai:chat', kind: 'mounts' });
 
       for (const [path, src] of Object.entries(manifestSources)) {
         const screen = path.split('/').pop()!.replace(/\.manifest\.ts$/, '');
@@ -643,9 +705,6 @@ function GraphPanel() {
         }
       }
 
-      // Best-effort op → table edge: scan handler source via Function.toString().
-      // This is dev-only inspection; misses programmatic table names but
-      // catches the common .from('habits') pattern.
       for (const op of ops) {
         const src = (op.handler as { toString: () => string }).toString();
         for (const table of tables) {
@@ -654,12 +713,44 @@ function GraphPanel() {
         }
       }
 
-      const nodes: { id: string; label: string; kind: GraphNodeKind }[] = [
-        ...(filter.op ? ops.map((o) => ({ id: `op:${o.name}`, label: o.name, kind: 'op' as const })) : []),
-        ...(filter.cmd ? cmds.map((c) => ({ id: `cmd:${c.name}`, label: c.name, kind: 'cmd' as const })) : []),
-        ...(filter.screen ? screens.map((s) => ({ id: `screen:${s}`, label: s, kind: 'screen' as const })) : []),
-        ...(filter.table ? tables.map((t) => ({ id: `table:${t}`, label: t, kind: 'table' as const })) : []),
-      ];
+      // Frontend wiring: scan each screen source for component + hook imports.
+      // Matches `import { X, Y } from '...'` and `import X from '...'`.
+      const importRe = /import\s+(?:\{([^}]+)\}|([A-Za-z_$][\w$]*))\s+from\s+['"]([^'"]+)['"]/g;
+      for (const [path, src] of Object.entries(screenSources)) {
+        const screen = path.split('/').pop()!.replace(/\.tsx$/, '');
+        for (const m of src.matchAll(importRe)) {
+          const named = m[1] ? m[1].split(',').map((s) => s.trim().split(/\s+as\s+/)[0].replace(/^type\s+/, '').trim()) : [];
+          const def = m[2];
+          const all = def ? [def, ...named] : named;
+          for (const sym of all) {
+            if (components.has(sym)) edges.push({ source: `screen:${screen}`, target: `component:${sym}`, kind: 'uses' });
+            if (hooks.has(sym))      edges.push({ source: `screen:${screen}`, target: `hook:${sym}`,      kind: 'uses' });
+          }
+        }
+      }
+
+      type Node = { id: string; label: string; kind: GraphNodeKind; health: NodeHealth };
+      const nodes: Node[] = [];
+      if (filter.app) nodes.push({ id: 'app:nik', label: 'NIK', kind: 'app', health: 'ok' });
+      if (filter.ai)  nodes.push({ id: 'ai:chat', label: 'AI · CHAT', kind: 'ai',  health: 'ok' });
+      if (filter.op) {
+        for (const o of ops) nodes.push({ id: `op:${o.name}`, label: o.name, kind: 'op', health: nodeHealth(o.name, calls) });
+      }
+      if (filter.cmd) {
+        for (const c of cmds) nodes.push({ id: `cmd:${c.name}`, label: c.name, kind: 'cmd', health: nodeHealth(c.name, calls) });
+      }
+      if (filter.screen) {
+        for (const s of screens) nodes.push({ id: `screen:${s}`, label: s, kind: 'screen', health: 'ok' });
+      }
+      if (filter.component) {
+        for (const c of components.values()) nodes.push({ id: c.id, label: c.label, kind: 'component', health: 'ok' });
+      }
+      if (filter.hook) {
+        for (const h of hooks.values()) nodes.push({ id: h.id, label: h.label, kind: 'hook', health: 'ok' });
+      }
+      if (filter.table) {
+        for (const t of tables) nodes.push({ id: `table:${t}`, label: t, kind: 'table', health: 'ok' });
+      }
 
       const nodeIds = new Set(nodes.map((n) => n.id));
       const visibleEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
@@ -668,11 +759,12 @@ function GraphPanel() {
         container: containerRef.current,
         elements: [
           ...nodes.map((n) => ({
-            data: { id: n.id, label: n.label, kind: n.kind },
-            classes: n.kind,
+            data: { id: n.id, label: n.label, kind: n.kind, health: n.health },
+            classes: `${n.kind} h-${n.health}`,
           })),
           ...visibleEdges.map((e, i) => ({
             data: { id: `e${i}`, source: e.source, target: e.target, kind: e.kind },
+            classes: `edge-${e.kind}`,
           })),
         ],
         style: [
@@ -692,10 +784,18 @@ function GraphPanel() {
               'border-width': 1.5,
             },
           },
+          // Super-nodes get a much larger size + label to act as anchors.
+          { selector: 'node.app', style: { width: 50, height: 50, 'border-width': 3, 'font-size': '14px', 'font-weight': 700, 'text-margin-y': 10 } },
+          { selector: 'node.ai',  style: { width: 36, height: 36, 'border-width': 2.5, 'font-size': '11px', 'font-weight': 700, 'text-margin-y': 8 } },
           ...(Object.entries(NODE_COLORS).map(([kind, c]) => ({
             selector: `node.${kind}`,
             style: { 'background-color': c.bg, 'border-color': c.border },
           })) as never[]),
+          // Health overrides for op/cmd nodes — overrides the kind colour
+          // so failures + un-tested tools are obvious at a glance.
+          { selector: 'node.h-ok',    style: { 'border-color': STATUS_COLORS.ok,  'border-width': 2.5 } },
+          { selector: 'node.h-err',   style: { 'background-color': STATUS_COLORS.err, 'border-color': STATUS_COLORS.err, 'border-width': 2.5 } },
+          { selector: 'node.h-never', style: { 'background-opacity': 0.35, 'border-style': 'dashed', 'border-color': STATUS_COLORS.never } },
           {
             selector: 'edge',
             style: {
@@ -707,6 +807,11 @@ function GraphPanel() {
               'curve-style': 'bezier',
             },
           },
+          // App / AI super-edges fade to draw attention to project edges.
+          { selector: 'edge.edge-contains', style: { 'line-color': 'oklch(1 0 0 / 0.06)', 'target-arrow-color': 'oklch(1 0 0 / 0.1)' } },
+          { selector: 'edge.edge-tool',     style: { 'line-color': 'oklch(0.65 0.20 320 / 0.15)', 'target-arrow-color': 'oklch(0.65 0.20 320 / 0.25)' } },
+          { selector: 'edge.edge-mounts',   style: { 'line-color': 'oklch(0.78 0.18 var(--hue) / 0.5)', 'target-arrow-color': 'oklch(0.78 0.18 var(--hue) / 0.6)', width: 2 } },
+          { selector: 'edge.edge-uses',     style: { 'line-color': 'oklch(0.78 0.16 30 / 0.18)',  'target-arrow-color': 'oklch(0.78 0.16 30 / 0.3)' } },
         ],
         layout: {
           name: 'fcose',
@@ -725,7 +830,14 @@ function GraphPanel() {
     })();
 
     return () => { cancelled = true; if (cy) cy.destroy(); };
-  }, [filter]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- recentOpCalls() is a stable ref into the live ring buffer
+  }, [filter, recentOpCalls().length]);
+
+  const calls = recentOpCalls();
+  const totalTools = getOpRegistry().size + getCmdRegistry().size;
+  const okCount = new Set(calls.filter((c) => c.ok).map((c) => c.name)).size;
+  const errCount = new Set(calls.filter((c) => !c.ok).map((c) => c.name)).size;
+  const neverCount = totalTools - okCount - errCount;
 
   return (
     <div>
@@ -746,6 +858,21 @@ function GraphPanel() {
             </div>
           );
         })}
+      </div>
+      {/* Health legend */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 8, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-3)', letterSpacing: 0.5 }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLORS.ok, boxShadow: `0 0 4px ${STATUS_COLORS.ok}` }} />
+          OK · {okCount}
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: STATUS_COLORS.err, boxShadow: `0 0 4px ${STATUS_COLORS.err}` }} />
+          ERR · {errCount}
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'transparent', border: `1.5px dashed ${STATUS_COLORS.never}` }} />
+          UNTESTED · {neverCount}
+        </span>
       </div>
       <div className="glass" style={{ position: 'relative', borderRadius: 12, height: '70vh', overflow: 'hidden' }}>
         <div ref={containerRef} style={{ width: '100%', height: '100%' }} />

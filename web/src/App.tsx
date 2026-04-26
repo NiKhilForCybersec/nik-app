@@ -50,6 +50,36 @@ import DevScreen from './screens/DevScreen';
 import ReadingScreen from './screens/ReadingScreen';
 import ShoppingScreen from './screens/ShoppingScreen';
 import BirthdaysScreen from './screens/BirthdaysScreen';
+// Phase C — items-backed dashboards. Each is a thin wrapper around
+// ItemsListScreen with a different `kind`. Adding a new one is now
+// one screen file + one manifest + one entry in PHASE_C_SCREENS below.
+import NutritionScreen from './screens/NutritionScreen';
+import SymptomsScreen from './screens/SymptomsScreen';
+import DoctorsScreen from './screens/DoctorsScreen';
+import LearningScreen from './screens/LearningScreen';
+import GratitudeScreen from './screens/GratitudeScreen';
+import GoalsScreen from './screens/GoalsScreen';
+import ReflectionScreen from './screens/ReflectionScreen';
+import LanguagesScreen from './screens/LanguagesScreen';
+import FriendsScreen from './screens/FriendsScreen';
+import NetworkScreen from './screens/NetworkScreen';
+import PetsScreen from './screens/PetsScreen';
+import BillsScreen from './screens/BillsScreen';
+import SubscriptionsScreen from './screens/SubscriptionsScreen';
+import InvestmentsScreen from './screens/InvestmentsScreen';
+import ReceiptsScreen from './screens/ReceiptsScreen';
+import RecipesScreen from './screens/RecipesScreen';
+import MaintenanceScreen from './screens/MaintenanceScreen';
+import PlantsScreen from './screens/PlantsScreen';
+import WardrobeScreen from './screens/WardrobeScreen';
+import TravelScreen from './screens/TravelScreen';
+import AchievementsScreen from './screens/AchievementsScreen';
+import BucketlistScreen from './screens/BucketlistScreen';
+import TimecapsuleScreen from './screens/TimecapsuleScreen';
+import PhotosScreen from './screens/PhotosScreen';
+import ProjectsScreen from './screens/ProjectsScreen';
+import CareerScreen from './screens/CareerScreen';
+import SideprojectsScreen from './screens/SideprojectsScreen';
 
 export type { ScreenId, AppState } from './types/app-state';
 import type { ScreenId, AppState as AppStateBase } from './types/app-state';
@@ -185,6 +215,33 @@ export default function App() {
       case 'reading':   return <ReadingScreen {...screenProps} />;
       case 'shopping':  return <ShoppingScreen {...screenProps} />;
       case 'birthdays': return <BirthdaysScreen {...screenProps} />;
+      case 'nutrition':     return <NutritionScreen {...screenProps} />;
+      case 'symptoms':      return <SymptomsScreen {...screenProps} />;
+      case 'doctors':       return <DoctorsScreen {...screenProps} />;
+      case 'learning':      return <LearningScreen {...screenProps} />;
+      case 'gratitude':     return <GratitudeScreen {...screenProps} />;
+      case 'goals':         return <GoalsScreen {...screenProps} />;
+      case 'reflection':    return <ReflectionScreen {...screenProps} />;
+      case 'languages':     return <LanguagesScreen {...screenProps} />;
+      case 'friends':       return <FriendsScreen {...screenProps} />;
+      case 'network':       return <NetworkScreen {...screenProps} />;
+      case 'pets':          return <PetsScreen {...screenProps} />;
+      case 'bills':         return <BillsScreen {...screenProps} />;
+      case 'subscriptions': return <SubscriptionsScreen {...screenProps} />;
+      case 'investments':   return <InvestmentsScreen {...screenProps} />;
+      case 'receipts':      return <ReceiptsScreen {...screenProps} />;
+      case 'recipes':       return <RecipesScreen {...screenProps} />;
+      case 'maintenance':   return <MaintenanceScreen {...screenProps} />;
+      case 'plants':        return <PlantsScreen {...screenProps} />;
+      case 'wardrobe':      return <WardrobeScreen {...screenProps} />;
+      case 'travel':        return <TravelScreen {...screenProps} />;
+      case 'achievements':  return <AchievementsScreen {...screenProps} />;
+      case 'bucketlist':    return <BucketlistScreen {...screenProps} />;
+      case 'timecapsule':   return <TimecapsuleScreen {...screenProps} />;
+      case 'photos':        return <PhotosScreen {...screenProps} />;
+      case 'projects':      return <ProjectsScreen {...screenProps} />;
+      case 'career':        return <CareerScreen {...screenProps} />;
+      case 'sideprojects':  return <SideprojectsScreen {...screenProps} />;
       case 'comingsoon': return <ComingSoonScreen {...screenProps} />;
       case 'dev':
         return import.meta.env.DEV

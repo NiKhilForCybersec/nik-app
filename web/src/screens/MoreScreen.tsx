@@ -49,10 +49,10 @@ const CATEGORIES: Category[] = [
       { id: 'sleep',        icon: 'moon',      label: 'Sleep',          sub: 'Stages · dreams · wind-down', hue: 280 },
       { id: 'fitness',      icon: 'dumbbell',  label: 'Fitness',        sub: 'Coach · library · plan',      hue: 30 },
       { id: 'hydration',    icon: 'water',     label: 'Hydration',      sub: '6/8 glasses today',           hue: 200, tag: 'SOON' },
-      { id: 'nutrition',    icon: 'utensils',  label: 'Nutrition',      sub: 'Macros · meals · deficit',    hue: 60,  tag: 'SOON' },
+      { id: 'nutrition',    icon: 'utensils',  label: 'Nutrition',      sub: 'Macros · meals · deficit',    hue: 60,  tag: 'NEW' },
       { id: 'cycle',        icon: 'refresh',   label: 'Cycle',          sub: 'Phase · symptoms · pred.',    hue: 320, tag: 'SOON' },
-      { id: 'symptoms',     icon: 'alert',     label: 'Symptoms',       sub: 'Log + AI pattern find',       hue: 25,  tag: 'SOON' },
-      { id: 'doctors',      icon: 'briefcase', label: 'Care Team',      sub: 'Doctors · history · insurance', hue: 200, tag: 'SOON' },
+      { id: 'symptoms',     icon: 'alert',     label: 'Symptoms',       sub: 'Log + AI pattern find',       hue: 25,  tag: 'NEW' },
+      { id: 'doctors',      icon: 'briefcase', label: 'Care Team',      sub: 'Doctors · history · insurance', hue: 200, tag: 'NEW' },
     ],
   },
   {
@@ -61,11 +61,11 @@ const CATEGORIES: Category[] = [
     subtitle: 'Reflection, growth, focus',
     items: [
       { id: 'reading',      icon: 'book',      label: 'Reading',        sub: 'Books · highlights · queue',  hue: 280, tag: 'NEW' },
-      { id: 'learning',     icon: 'brain',     label: 'Learning',       sub: 'Courses · streaks · goals',   hue: 220, tag: 'SOON' },
-      { id: 'gratitude',    icon: 'heart',     label: 'Gratitude',      sub: 'Daily · 3 things',            hue: 320, tag: 'SOON' },
-      { id: 'goals',        icon: 'target',    label: 'Goals',          sub: 'Year · quarter · this week',  hue: 150, tag: 'SOON' },
-      { id: 'reflection',   icon: 'sparkle',   label: 'Reflection',     sub: 'Weekly · monthly · yearly',   hue: 200, tag: 'SOON' },
-      { id: 'languages',    icon: 'globe',     label: 'Languages',      sub: 'Decks · streaks · listen',    hue: 60,  tag: 'SOON' },
+      { id: 'learning',     icon: 'brain',     label: 'Learning',       sub: 'Courses · streaks · goals',   hue: 220, tag: 'NEW' },
+      { id: 'gratitude',    icon: 'heart',     label: 'Gratitude',      sub: 'Daily · 3 things',            hue: 320, tag: 'NEW' },
+      { id: 'goals',        icon: 'target',    label: 'Goals',          sub: 'Year · quarter · this week',  hue: 150, tag: 'NEW' },
+      { id: 'reflection',   icon: 'sparkle',   label: 'Reflection',     sub: 'Weekly · monthly · yearly',   hue: 200, tag: 'NEW' },
+      { id: 'languages',    icon: 'globe',     label: 'Languages',      sub: 'Decks · streaks · listen',    hue: 60,  tag: 'NEW' },
     ],
   },
   {
@@ -77,9 +77,9 @@ const CATEGORIES: Category[] = [
       { id: 'familyops',    icon: 'users',     label: 'Family Ops',     sub: 'Tasks · alarms · routines',   hue: 220 },
       { id: 'couple',       icon: 'heart',     label: 'Couple',         sub: 'Notes · gratitude · dates',   hue: 320 },
       { id: 'kids',         icon: 'family',    label: 'Kids View',      sub: 'Routines · stars · rewards',  hue: 30 },
-      { id: 'friends',      icon: 'users',     label: 'Friends',        sub: 'Touch · plans · birthdays',   hue: 280, tag: 'SOON' },
-      { id: 'network',      icon: 'briefcase', label: 'Network',        sub: 'Reach-outs · intros',         hue: 220, tag: 'SOON' },
-      { id: 'pets',         icon: 'heart',     label: 'Pets',           sub: 'Vet · meds · feeding',        hue: 60,  tag: 'SOON' },
+      { id: 'friends',      icon: 'users',     label: 'Friends',        sub: 'Touch · plans · birthdays',   hue: 280, tag: 'NEW' },
+      { id: 'network',      icon: 'briefcase', label: 'Network',        sub: 'Reach-outs · intros',         hue: 220, tag: 'NEW' },
+      { id: 'pets',         icon: 'heart',     label: 'Pets',           sub: 'Vet · meds · feeding',        hue: 60,  tag: 'NEW' },
       { id: 'birthdays',    icon: 'calendar',  label: 'Birthdays',      sub: 'Upcoming · gifts · cards',    hue: 320, tag: 'NEW' },
     ],
   },
@@ -89,10 +89,10 @@ const CATEGORIES: Category[] = [
     subtitle: 'Spend, save, plan',
     items: [
       { id: 'money',        icon: 'wallet',    label: 'Money',          sub: 'Budgets · bills · txns',      hue: 150 },
-      { id: 'bills',        icon: 'mail',      label: 'Bills',          sub: 'Recurring · auto · alerts',   hue: 25,  tag: 'SOON' },
-      { id: 'subscriptions',icon: 'refresh',   label: 'Subscriptions',  sub: 'Audit · cancel · save',       hue: 200, tag: 'SOON' },
-      { id: 'investments',  icon: 'trend',     label: 'Investments',    sub: 'Portfolio · trends',          hue: 150, tag: 'SOON' },
-      { id: 'receipts',     icon: 'mail',      label: 'Receipts',       sub: 'Scan · categorise · taxes',   hue: 60,  tag: 'SOON' },
+      { id: 'bills',        icon: 'mail',      label: 'Bills',          sub: 'Recurring · auto · alerts',   hue: 25,  tag: 'NEW' },
+      { id: 'subscriptions',icon: 'refresh',   label: 'Subscriptions',  sub: 'Audit · cancel · save',       hue: 200, tag: 'NEW' },
+      { id: 'investments',  icon: 'trend',     label: 'Investments',    sub: 'Portfolio · trends',          hue: 150, tag: 'NEW' },
+      { id: 'receipts',     icon: 'mail',      label: 'Receipts',       sub: 'Scan · categorise · taxes',   hue: 60,  tag: 'NEW' },
     ],
   },
   {
@@ -102,10 +102,10 @@ const CATEGORIES: Category[] = [
     items: [
       { id: 'errands',      icon: 'shopping',  label: 'Errands',        sub: 'Routes · GPS · shared',       hue: 200 },
       { id: 'shopping',     icon: 'shopping',  label: 'Shopping',       sub: 'Lists · stores · history',    hue: 280, tag: 'NEW' },
-      { id: 'recipes',      icon: 'utensils',  label: 'Recipes',        sub: 'Save · cook · plan week',     hue: 30,  tag: 'SOON' },
-      { id: 'maintenance',  icon: 'settings',  label: 'Home',           sub: 'Filters · service · warranty',hue: 220, tag: 'SOON' },
-      { id: 'plants',       icon: 'flame',     label: 'Plants',         sub: 'Water · sun · health',        hue: 150, tag: 'SOON' },
-      { id: 'wardrobe',     icon: 'shopping',  label: 'Wardrobe',       sub: 'Outfits · capsule · laundry', hue: 320, tag: 'SOON' },
+      { id: 'recipes',      icon: 'utensils',  label: 'Recipes',        sub: 'Save · cook · plan week',     hue: 30,  tag: 'NEW' },
+      { id: 'maintenance',  icon: 'settings',  label: 'Home',           sub: 'Filters · service · warranty',hue: 220, tag: 'NEW' },
+      { id: 'plants',       icon: 'flame',     label: 'Plants',         sub: 'Water · sun · health',        hue: 150, tag: 'NEW' },
+      { id: 'wardrobe',     icon: 'shopping',  label: 'Wardrobe',       sub: 'Outfits · capsule · laundry', hue: 320, tag: 'NEW' },
     ],
   },
   {
@@ -114,11 +114,11 @@ const CATEGORIES: Category[] = [
     subtitle: 'Hold onto what matters',
     items: [
       { id: 'vault',        icon: 'lock',      label: 'Vault',          sub: 'Photos · voice · on-this-day',hue: 280 },
-      { id: 'travel',       icon: 'compass',   label: 'Travel',         sub: 'Trips · packing · docs',      hue: 200, tag: 'SOON' },
-      { id: 'achievements', icon: 'sparkles',  label: 'Achievements',   sub: 'Badges · streaks · level',    hue: 60,  tag: 'SOON' },
-      { id: 'bucketlist',   icon: 'target',    label: 'Bucket List',    sub: 'Dreams · steps · done',       hue: 320, tag: 'SOON' },
-      { id: 'timecapsule',  icon: 'clock',     label: 'Time Capsule',   sub: 'Letters · sealed · open in N',hue: 150, tag: 'SOON' },
-      { id: 'photos',       icon: 'camera',    label: 'Photos',         sub: 'Roll · favourites · timeline',hue: 30,  tag: 'SOON' },
+      { id: 'travel',       icon: 'compass',   label: 'Travel',         sub: 'Trips · packing · docs',      hue: 200, tag: 'NEW' },
+      { id: 'achievements', icon: 'sparkles',  label: 'Achievements',   sub: 'Badges · streaks · level',    hue: 60,  tag: 'NEW' },
+      { id: 'bucketlist',   icon: 'target',    label: 'Bucket List',    sub: 'Dreams · steps · done',       hue: 320, tag: 'NEW' },
+      { id: 'timecapsule',  icon: 'clock',     label: 'Time Capsule',   sub: 'Letters · sealed · open in N',hue: 150, tag: 'NEW' },
+      { id: 'photos',       icon: 'camera',    label: 'Photos',         sub: 'Roll · favourites · timeline',hue: 30,  tag: 'NEW' },
     ],
   },
   {
@@ -126,10 +126,10 @@ const CATEGORIES: Category[] = [
     title: 'Work',
     subtitle: 'Projects, career, time',
     items: [
-      { id: 'projects',     icon: 'briefcase', label: 'Projects',       sub: 'Active · sprints · log',      hue: 220, tag: 'SOON' },
+      { id: 'projects',     icon: 'briefcase', label: 'Projects',       sub: 'Active · sprints · log',      hue: 220, tag: 'NEW' },
       { id: 'calendar',     icon: 'calendar',  label: 'Calendar',       sub: 'Today · week · agenda',       hue: 280, tag: 'SOON' },
-      { id: 'career',       icon: 'trend',     label: 'Career',         sub: 'Goals · review · next role',  hue: 150, tag: 'SOON' },
-      { id: 'sideprojects', icon: 'sparkle',   label: 'Side Projects',  sub: 'Repos · ideas · cadence',     hue: 25,  tag: 'SOON' },
+      { id: 'career',       icon: 'trend',     label: 'Career',         sub: 'Goals · review · next role',  hue: 150, tag: 'NEW' },
+      { id: 'sideprojects', icon: 'sparkle',   label: 'Side Projects',  sub: 'Repos · ideas · cadence',     hue: 25,  tag: 'NEW' },
     ],
   },
   {
@@ -155,7 +155,16 @@ const isImplemented = (id: string) =>
   ['home','chat','habits','fitness','profile','familyops','circle','family','meds','diary',
    'focus','score','sleep','money','brief','vault','errands','couple','kids','onboard',
    'settings','quests','widgets','stats','more',
-   'reading','shopping','birthdays'].includes(id);
+   // Phase C — items-backed dashboards
+   'reading','shopping','birthdays',
+   'nutrition','symptoms','doctors',
+   'learning','gratitude','goals','reflection','languages',
+   'friends','network','pets',
+   'bills','subscriptions','investments','receipts',
+   'recipes','maintenance','plants','wardrobe',
+   'travel','achievements','bucketlist','timecapsule','photos',
+   'projects','career','sideprojects',
+  ].includes(id);
 
 export default function MoreScreen({ onNav, setState }: ScreenProps) {
   const [search, setSearch] = useState('');

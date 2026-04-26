@@ -92,14 +92,22 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 
 | File | Exports |
 |---|---|
+| [web/src/screens/AchievementsScreen.manifest.ts](../web/src/screens/AchievementsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/AchievementsScreen.tsx](../web/src/screens/AchievementsScreen.tsx) | `*default*`, `AchievementsScreen` |
 | [web/src/screens/AuthScreen.manifest.ts](../web/src/screens/AuthScreen.manifest.ts) | `manifest` |
 | [web/src/screens/AuthScreen.tsx](../web/src/screens/AuthScreen.tsx) | `*default*`, `AuthScreen` |
 | _Email + password for now (test/test enough in dev). OAuth buttons_ | |
+| [web/src/screens/BillsScreen.manifest.ts](../web/src/screens/BillsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/BillsScreen.tsx](../web/src/screens/BillsScreen.tsx) | `*default*`, `BillsScreen` |
 | [web/src/screens/BirthdaysScreen.manifest.ts](../web/src/screens/BirthdaysScreen.manifest.ts) | `manifest` |
 | [web/src/screens/BirthdaysScreen.tsx](../web/src/screens/BirthdaysScreen.tsx) | `*default*`, `BirthdaysScreen` |
 | [web/src/screens/BriefScreen.manifest.ts](../web/src/screens/BriefScreen.manifest.ts) | `manifest` |
 | [web/src/screens/BriefScreen.tsx](../web/src/screens/BriefScreen.tsx) | `*default*`, `BriefScreen` |
 | _Reads ingested events from `events` table (movie tickets, calendar_ | |
+| [web/src/screens/BucketlistScreen.manifest.ts](../web/src/screens/BucketlistScreen.manifest.ts) | `manifest` |
+| [web/src/screens/BucketlistScreen.tsx](../web/src/screens/BucketlistScreen.tsx) | `*default*`, `BucketlistScreen` |
+| [web/src/screens/CareerScreen.manifest.ts](../web/src/screens/CareerScreen.manifest.ts) | `manifest` |
+| [web/src/screens/CareerScreen.tsx](../web/src/screens/CareerScreen.tsx) | `*default*`, `CareerScreen` |
 | [web/src/screens/ChatScreen.manifest.ts](../web/src/screens/ChatScreen.manifest.ts) | `manifest` |
 | [web/src/screens/ChatScreen.tsx](../web/src/screens/ChatScreen.tsx) | `*default*`, `ChatScreen` |
 | [web/src/screens/CircleScreen.manifest.ts](../web/src/screens/CircleScreen.manifest.ts) | `manifest` |
@@ -119,6 +127,8 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/DiaryScreen.manifest.ts](../web/src/screens/DiaryScreen.manifest.ts) | `manifest` |
 | [web/src/screens/DiaryScreen.tsx](../web/src/screens/DiaryScreen.tsx) | `*default*`, `DiaryScreen` |
 | _Daily diary with thoughts, photos, videos, voice, mood, AI prompts,_ | |
+| [web/src/screens/DoctorsScreen.manifest.ts](../web/src/screens/DoctorsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/DoctorsScreen.tsx](../web/src/screens/DoctorsScreen.tsx) | `*default*`, `DoctorsScreen` |
 | [web/src/screens/ErrandsScreen.manifest.ts](../web/src/screens/ErrandsScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/ErrandsScreen.tsx](../web/src/screens/ErrandsScreen.tsx) | `*default*`, `ErrandsScreen` |
@@ -132,14 +142,28 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/FocusScreen.tsx](../web/src/screens/FocusScreen.tsx) | `*default*`, `FocusScreen` |
 | _AI-suggested timer · fullscreen lockdown · distraction tracking · session report._ | |
+| [web/src/screens/FriendsScreen.manifest.ts](../web/src/screens/FriendsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/FriendsScreen.tsx](../web/src/screens/FriendsScreen.tsx) | `*default*`, `FriendsScreen` |
+| [web/src/screens/GoalsScreen.manifest.ts](../web/src/screens/GoalsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/GoalsScreen.tsx](../web/src/screens/GoalsScreen.tsx) | `*default*`, `GoalsScreen` |
+| [web/src/screens/GratitudeScreen.manifest.ts](../web/src/screens/GratitudeScreen.manifest.ts) | `manifest` |
+| [web/src/screens/GratitudeScreen.tsx](../web/src/screens/GratitudeScreen.tsx) | `*default*`, `GratitudeScreen` |
 | [web/src/screens/HabitsScreen.manifest.ts](../web/src/screens/HabitsScreen.manifest.ts) | `manifest` |
 | [web/src/screens/HabitsScreen.tsx](../web/src/screens/HabitsScreen.tsx) | `*default*`, `AddHabitSheet`, `HabitsScreen`, `IntegrationChip` |
 | _Big hero ring · per-habit animated cards · confetti on completion · AI suggestions_ | |
 | [web/src/screens/HomeScreen.manifest.ts](../web/src/screens/HomeScreen.manifest.ts) | `manifest` |
 | [web/src/screens/HomeScreen.tsx](../web/src/screens/HomeScreen.tsx) | `*default*`, `AnimatedRing`, `HomeScreen`, `LiveStat` |
+| [web/src/screens/InvestmentsScreen.manifest.ts](../web/src/screens/InvestmentsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/InvestmentsScreen.tsx](../web/src/screens/InvestmentsScreen.tsx) | `*default*`, `InvestmentsScreen` |
 | [web/src/screens/KidsScreen.manifest.ts](../web/src/screens/KidsScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/KidsScreen.tsx](../web/src/screens/KidsScreen.tsx) | `*default*`, `KidsScreen` |
+| [web/src/screens/LanguagesScreen.manifest.ts](../web/src/screens/LanguagesScreen.manifest.ts) | `manifest` |
+| [web/src/screens/LanguagesScreen.tsx](../web/src/screens/LanguagesScreen.tsx) | `*default*`, `LanguagesScreen` |
+| [web/src/screens/LearningScreen.manifest.ts](../web/src/screens/LearningScreen.manifest.ts) | `manifest` |
+| [web/src/screens/LearningScreen.tsx](../web/src/screens/LearningScreen.tsx) | `*default*`, `LearningScreen` |
+| [web/src/screens/MaintenanceScreen.manifest.ts](../web/src/screens/MaintenanceScreen.manifest.ts) | `manifest` |
+| [web/src/screens/MaintenanceScreen.tsx](../web/src/screens/MaintenanceScreen.tsx) | `*default*`, `MaintenanceScreen` |
 | [web/src/screens/MedsScreen.manifest.ts](../web/src/screens/MedsScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/MedsScreen.tsx](../web/src/screens/MedsScreen.tsx) | `*default*`, `MedsScreen` |
@@ -150,16 +174,34 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/MoreScreen.manifest.ts](../web/src/screens/MoreScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/MoreScreen.tsx](../web/src/screens/MoreScreen.tsx) | `*default*`, `MoreScreen` |
+| [web/src/screens/NetworkScreen.manifest.ts](../web/src/screens/NetworkScreen.manifest.ts) | `manifest` |
+| [web/src/screens/NetworkScreen.tsx](../web/src/screens/NetworkScreen.tsx) | `*default*`, `NetworkScreen` |
+| [web/src/screens/NutritionScreen.manifest.ts](../web/src/screens/NutritionScreen.manifest.ts) | `manifest` |
+| [web/src/screens/NutritionScreen.tsx](../web/src/screens/NutritionScreen.tsx) | `*default*`, `NutritionScreen` |
 | [web/src/screens/OnboardScreen.manifest.ts](../web/src/screens/OnboardScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/OnboardScreen.tsx](../web/src/screens/OnboardScreen.tsx) | `*default*`, `OnboardScreen` |
+| [web/src/screens/PetsScreen.manifest.ts](../web/src/screens/PetsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/PetsScreen.tsx](../web/src/screens/PetsScreen.tsx) | `*default*`, `PetsScreen` |
+| [web/src/screens/PhotosScreen.manifest.ts](../web/src/screens/PhotosScreen.manifest.ts) | `manifest` |
+| [web/src/screens/PhotosScreen.tsx](../web/src/screens/PhotosScreen.tsx) | `*default*`, `PhotosScreen` |
+| [web/src/screens/PlantsScreen.manifest.ts](../web/src/screens/PlantsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/PlantsScreen.tsx](../web/src/screens/PlantsScreen.tsx) | `*default*`, `PlantsScreen` |
 | [web/src/screens/ProfileScreen.manifest.ts](../web/src/screens/ProfileScreen.manifest.ts) | `manifest` |
 | [web/src/screens/ProfileScreen.tsx](../web/src/screens/ProfileScreen.tsx) | `*default*`, `PROFILE_PRESETS`, `ProfileScreen` |
+| [web/src/screens/ProjectsScreen.manifest.ts](../web/src/screens/ProjectsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/ProjectsScreen.tsx](../web/src/screens/ProjectsScreen.tsx) | `*default*`, `ProjectsScreen` |
 | [web/src/screens/QuestsScreen.manifest.ts](../web/src/screens/QuestsScreen.manifest.ts) | `manifest` |
 | [web/src/screens/QuestsScreen.tsx](../web/src/screens/QuestsScreen.tsx) | `*default*`, `QuestsScreen` |
 | _Featured emergent quest (GPS) — purely a placeholder until the_ | |
 | [web/src/screens/ReadingScreen.manifest.ts](../web/src/screens/ReadingScreen.manifest.ts) | `manifest` |
 | [web/src/screens/ReadingScreen.tsx](../web/src/screens/ReadingScreen.tsx) | `*default*`, `ReadingScreen` |
+| [web/src/screens/ReceiptsScreen.manifest.ts](../web/src/screens/ReceiptsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/ReceiptsScreen.tsx](../web/src/screens/ReceiptsScreen.tsx) | `*default*`, `ReceiptsScreen` |
+| [web/src/screens/RecipesScreen.manifest.ts](../web/src/screens/RecipesScreen.manifest.ts) | `manifest` |
+| [web/src/screens/RecipesScreen.tsx](../web/src/screens/RecipesScreen.tsx) | `*default*`, `RecipesScreen` |
+| [web/src/screens/ReflectionScreen.manifest.ts](../web/src/screens/ReflectionScreen.manifest.ts) | `manifest` |
+| [web/src/screens/ReflectionScreen.tsx](../web/src/screens/ReflectionScreen.tsx) | `*default*`, `ReflectionScreen` |
 | [web/src/screens/ScoreScreen.manifest.ts](../web/src/screens/ScoreScreen.manifest.ts) | `manifest` |
 | [web/src/screens/ScoreScreen.tsx](../web/src/screens/ScoreScreen.tsx) | `*default*`, `ScoreScreen` |
 | _Full breakdown of the 0-1000 Nik score: pillars, recent events,_ | |
@@ -168,14 +210,26 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/SettingsScreen.tsx](../web/src/screens/SettingsScreen.tsx) | `*default*`, `SettingsScreen` |
 | [web/src/screens/ShoppingScreen.manifest.ts](../web/src/screens/ShoppingScreen.manifest.ts) | `manifest` |
 | [web/src/screens/ShoppingScreen.tsx](../web/src/screens/ShoppingScreen.tsx) | `*default*`, `ShoppingScreen` |
+| [web/src/screens/SideprojectsScreen.manifest.ts](../web/src/screens/SideprojectsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/SideprojectsScreen.tsx](../web/src/screens/SideprojectsScreen.tsx) | `*default*`, `SideprojectsScreen` |
 | [web/src/screens/SleepScreen.manifest.ts](../web/src/screens/SleepScreen.manifest.ts) | `manifest` |
 | [web/src/screens/SleepScreen.tsx](../web/src/screens/SleepScreen.tsx) | `*default*`, `SleepScreen` |
 | [web/src/screens/StatsScreen.manifest.ts](../web/src/screens/StatsScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/StatsScreen.tsx](../web/src/screens/StatsScreen.tsx) | `*default*`, `StatsScreen` |
+| [web/src/screens/SubscriptionsScreen.manifest.ts](../web/src/screens/SubscriptionsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/SubscriptionsScreen.tsx](../web/src/screens/SubscriptionsScreen.tsx) | `*default*`, `SubscriptionsScreen` |
+| [web/src/screens/SymptomsScreen.manifest.ts](../web/src/screens/SymptomsScreen.manifest.ts) | `manifest` |
+| [web/src/screens/SymptomsScreen.tsx](../web/src/screens/SymptomsScreen.tsx) | `*default*`, `SymptomsScreen` |
+| [web/src/screens/TimecapsuleScreen.manifest.ts](../web/src/screens/TimecapsuleScreen.manifest.ts) | `manifest` |
+| [web/src/screens/TimecapsuleScreen.tsx](../web/src/screens/TimecapsuleScreen.tsx) | `*default*`, `TimecapsuleScreen` |
+| [web/src/screens/TravelScreen.manifest.ts](../web/src/screens/TravelScreen.manifest.ts) | `manifest` |
+| [web/src/screens/TravelScreen.tsx](../web/src/screens/TravelScreen.tsx) | `*default*`, `TravelScreen` |
 | [web/src/screens/VaultScreen.manifest.ts](../web/src/screens/VaultScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/VaultScreen.tsx](../web/src/screens/VaultScreen.tsx) | `*default*`, `VaultScreen` |
+| [web/src/screens/WardrobeScreen.manifest.ts](../web/src/screens/WardrobeScreen.manifest.ts) | `manifest` |
+| [web/src/screens/WardrobeScreen.tsx](../web/src/screens/WardrobeScreen.tsx) | `*default*`, `WardrobeScreen` |
 | [web/src/screens/WidgetsScreen.manifest.ts](../web/src/screens/WidgetsScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/WidgetsScreen.tsx](../web/src/screens/WidgetsScreen.tsx) | `*default*`, `WidgetsScreen` |
@@ -213,6 +267,6 @@ _Shared type-only modules._
 
 ---
 
-**Stats**: 100 files, 294 exports.
+**Stats**: 154 files, 375 exports.
 
-**Last regenerated**: 2026-04-26T05:23:14.572Z.
+**Last regenerated**: 2026-04-26T05:35:55.607Z.

@@ -8,7 +8,14 @@ export type ScreenId =
   | 'couple' | 'kids' | 'onboard' | 'settings'
   | 'quests' | 'voice' | 'widgets' | 'stats'
   | 'comingsoon' | 'dev'
-  | 'reading' | 'shopping' | 'birthdays';
+  | 'reading' | 'shopping' | 'birthdays'
+  | 'nutrition' | 'symptoms' | 'doctors'
+  | 'learning' | 'gratitude' | 'goals' | 'reflection' | 'languages'
+  | 'friends' | 'network' | 'pets'
+  | 'bills' | 'subscriptions' | 'investments' | 'receipts'
+  | 'recipes' | 'maintenance' | 'plants' | 'wardrobe'
+  | 'travel' | 'achievements' | 'bucketlist' | 'timecapsule' | 'photos'
+  | 'projects' | 'career' | 'sideprojects';
 
 export type AppState = {
   screen: ScreenId;
