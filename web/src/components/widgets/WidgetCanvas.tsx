@@ -258,6 +258,12 @@ const SortableItem: React.FC<{
     // the inner WidgetShell (which would normally be the grid item)
     // fills 100% of the wrapper's space — same visual footprint.
     display: 'flex',
+    // min-width: 0 lets the flex child shrink below its content's
+    // intrinsic width — without this, long widget content can
+    // push the tile past its grid cell, causing horizontal overflow
+    // (visible on narrow phone screens).
+    minWidth: 0,
+    overflow: 'hidden',
   };
 
   if (!def) {
