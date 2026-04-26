@@ -35,7 +35,8 @@ import type { WidgetType } from '../../contracts/widgets';
 
 // ── Common props every widget receives ─────────────────────
 
-export type WidgetSize = { w: 1 | 2; h: 1 | 2 };
+export type WidgetUnit = 1 | 2 | 3;
+export type WidgetSize = { w: WidgetUnit; h: WidgetUnit };
 
 export type WidgetRenderProps<TConfig = Record<string, unknown>> = {
   size: WidgetSize;
@@ -725,11 +726,11 @@ const noConfig = z.object({}).strict() as unknown as z.ZodType<Record<string, un
 // `allowedSizes` is kept for any future widget that genuinely cannot
 // render at a given size; default opens everything so users + the AI
 // aren't artificially boxed in. See docs/Policy.md → "Widget grid".
+// 3 × 3 = 9 valid shapes. Every widget supports every shape.
 const ALL_SIZES: WidgetSize[] = [
-  { w: 1, h: 1 },
-  { w: 2, h: 1 },
-  { w: 1, h: 2 },
-  { w: 2, h: 2 },
+  { w: 1, h: 1 }, { w: 2, h: 1 }, { w: 3, h: 1 },
+  { w: 1, h: 2 }, { w: 2, h: 2 }, { w: 3, h: 2 },
+  { w: 1, h: 3 }, { w: 2, h: 3 }, { w: 3, h: 3 },
 ];
 
 export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {

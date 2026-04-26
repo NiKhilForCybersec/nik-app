@@ -49,7 +49,7 @@ import { useOp, useOpMutation } from '../lib/useOp';
 import { useCommand } from '../lib/useCommand';
 import { useAuth } from '../lib/auth';
 import { widgets as widgetsOps, WidgetType, type Widget } from '../contracts/widgets';
-import { WIDGET_TYPES, type WidgetSize } from '../components/widgets';
+import { WIDGET_TYPES, type WidgetSize, type WidgetUnit } from '../components/widgets';
 import { llm } from '../lib/llm';
 import { buildToolCatalog, executeToolCall } from '../lib/llm/tools';
 import type { LLMMessage, LLMToolCall } from '../lib/llm/types';
@@ -340,7 +340,7 @@ export default function WidgetsScreen(_p: ScreenProps) {
         <SortableContext items={ids} strategy={rectSortingStrategy}>
           <div
             onClick={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }}
-            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}
+            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}
           >
             {visibleList.map((w) => (
               <SortableWidget
@@ -493,39 +493,53 @@ const SortableWidget: React.FC<{
   }
   const Render = def.Component;
 
-  // Edge-drag resize handler. Drag the right edge → toggles w; drag
-  // the bottom edge → toggles h. Snap threshold is the tile's own
-  // width/height — release past it commits the new size.
+  // Edge-drag resize handler. Drag the right edge → grows/shrinks w
+  // through {1, 2, 3}; drag the bottom edge → same for h. We snap to
+  // the closest cell-unit based on cursor position relative to the
+  // tile's left/top edge. Pointermove is rAF-throttled so we never
+  // process more than one move per paint frame, which kills the
+  // choppiness on touch devices.
   const startEdgeDrag = (axis: 'w' | 'h') => (e: React.PointerEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     const tile = tileRef.current;
     if (!tile) return;
     const rect = tile.getBoundingClientRect();
-    const startX = e.clientX;
-    const startY = e.clientY;
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
-    let nextW = widget.w as 1 | 2;
-    let nextH = widget.h as 1 | 2;
 
-    const onMove = (m: PointerEvent) => {
+    // Cell width/height in px (1-unit). For w-axis: rect.width is
+    // the *current* width covering widget.w columns; cell = rect / w.
+    const cellW = rect.width / widget.w;
+    const cellH = rect.height / widget.h;
+    let nextW = widget.w as WidgetUnit;
+    let nextH = widget.h as WidgetUnit;
+
+    let pending: PointerEvent | null = null;
+    let raf = 0;
+    const flush = () => {
+      raf = 0;
+      if (!pending) return;
+      const m = pending;
+      pending = null;
       if (axis === 'w') {
-        const dx = m.clientX - startX;
-        // grow → 2, shrink → 1, threshold = half a tile width
-        const threshold = rect.width * 0.5;
-        if (widget.w === 1 && dx > threshold) nextW = 2;
-        else if (widget.w === 2 && dx < -threshold) nextW = 1;
-        else nextW = widget.w as 1 | 2;
+        const distFromLeft = m.clientX - rect.left;
+        const units = Math.round(distFromLeft / cellW);
+        nextW = (Math.max(1, Math.min(3, units)) as WidgetUnit);
       } else {
-        const dy = m.clientY - startY;
-        const threshold = rect.height * 0.5;
-        if (widget.h === 1 && dy > threshold) nextH = 2;
-        else if (widget.h === 2 && dy < -threshold) nextH = 1;
-        else nextH = widget.h as 1 | 2;
+        const distFromTop = m.clientY - rect.top;
+        const units = Math.round(distFromTop / cellH);
+        nextH = (Math.max(1, Math.min(3, units)) as WidgetUnit);
       }
     };
 
+    const onMove = (m: PointerEvent) => {
+      pending = m;
+      if (!raf) raf = requestAnimationFrame(flush);
+    };
+
     const onUp = () => {
+      if (raf) { cancelAnimationFrame(raf); flush(); }
       target.removeEventListener('pointermove', onMove);
       target.removeEventListener('pointerup', onUp);
       target.removeEventListener('pointercancel', onUp);
@@ -549,7 +563,7 @@ const SortableWidget: React.FC<{
     >
       {/* Tap-through disabled while editing. */}
       <div style={{ pointerEvents: 'none' }}>
-        <Render size={{ w: widget.w as 1 | 2, h: widget.h as 1 | 2 }} config={widget.config} />
+        <Render size={{ w: widget.w as WidgetUnit, h: widget.h as WidgetUnit }} config={widget.config} />
       </div>
 
       {/* ✕ remove */}
@@ -596,39 +610,39 @@ const SortableWidget: React.FC<{
         </>
       )}
 
-      {/* Size selector — 4 buttons appear when selected. Tap any to
-          jump straight to that shape. */}
+      {/* Size selector — 3×3 grid of every shape, surfaces below the
+          remove button when selected. Each cell is a tappable
+          mini-rectangle whose proportions visually match the size. */}
       {isSelected && (
         <div
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
           style={{
-            position: 'absolute', bottom: 8, left: 8, display: 'flex', gap: 4, zIndex: 4,
+            position: 'absolute', top: 8, right: 8, zIndex: 4,
+            padding: 6, borderRadius: 10,
+            background: 'oklch(0.16 0.02 260 / 0.92)',
+            border: '1px solid var(--hairline-strong)',
+            display: 'grid', gridTemplateColumns: 'repeat(3, 14px)', gap: 3,
+            backdropFilter: 'blur(8px)',
+            boxShadow: '0 8px 18px -6px oklch(0 0 0 / 0.5)',
           }}
         >
-          {([
-            { w: 1, h: 1, label: '1×1' },
-            { w: 2, h: 1, label: '2×1' },
-            { w: 1, h: 2, label: '1×2' },
-            { w: 2, h: 2, label: '2×2' },
-          ] as const).map((s) => {
-            const active = s.w === widget.w && s.h === widget.h;
+          {([1, 2, 3] as const).flatMap((h) => ([1, 2, 3] as const).map((w) => {
+            const active = w === widget.w && h === widget.h;
             return (
               <button
-                key={s.label}
-                onClick={() => onSetSize(widget, { w: s.w, h: s.h })}
+                key={`${w}x${h}`}
+                onClick={() => onSetSize(widget, { w, h })}
+                aria-label={`${w}×${h}`}
                 style={{
-                  padding: '3px 6px', borderRadius: 6,
-                  fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 0.5, fontWeight: 600,
-                  background: active ? `oklch(0.85 0.16 ${def.hue})` : 'oklch(0.20 0.02 260 / 0.85)',
-                  color: active ? '#06060a' : 'var(--fg-1)',
-                  border: '1px solid var(--hairline-strong)', cursor: 'pointer',
+                  width: 14, height: 14, borderRadius: 3,
+                  background: active ? `oklch(0.85 0.16 ${def.hue})` : `oklch(0.78 0.16 ${def.hue} / 0.20)`,
+                  border: `1px solid oklch(0.85 0.16 ${def.hue} / ${active ? 1 : 0.4})`,
+                  cursor: 'pointer', padding: 0,
                 }}
-              >
-                {s.label}
-              </button>
+              />
             );
-          })}
+          }))}
         </div>
       )}
 
@@ -664,7 +678,7 @@ const DragGhost: React.FC<{ widget: Widget }> = ({ widget }) => {
       pointerEvents: 'none',
     }}>
       <div style={{ display: 'grid', gridTemplateColumns: widget.w === 2 ? '1fr' : '1fr', gap: 0 }}>
-        <Render size={{ w: widget.w as 1 | 2, h: widget.h as 1 | 2 }} config={widget.config} />
+        <Render size={{ w: widget.w as WidgetUnit, h: widget.h as WidgetUnit }} config={widget.config} />
       </div>
     </div>
   );
@@ -708,18 +722,40 @@ const Library: React.FC<{
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)', marginBottom: 8 }}>
-        LIBRARY · {available.length} AVAILABLE · TAP OR DRAG INTO CANVAS
+        LIBRARY · {available.length} AVAILABLE · SWIPE · TAP OR DRAG TO PLACE
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        {available.map((p) => (
-          <DraggableLibraryItem key={p.id} preset={p} onTap={() => onTap(p)} disabled={installPending} />
-        ))}
-        {available.length === 0 && (
-          <div style={{ gridColumn: 'span 2', fontSize: 12, color: 'var(--fg-3)', padding: 12, textAlign: 'center' }}>
-            Every widget type and list is on your canvas already. Remove one to swap.
-          </div>
-        )}
-      </div>
+      {available.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--fg-3)', padding: 12, textAlign: 'center' }}>
+          Every widget type and list is on your canvas already. Remove one to swap.
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            // 3 rows of cards. gridAutoFlow: column packs cards top-to-bottom
+            // first, then advances to the next column → user scrolls right
+            // to see more. scrollSnapType keeps cards aligned.
+            gridTemplateRows: 'repeat(3, 1fr)',
+            gridAutoFlow: 'column',
+            gridAutoColumns: '180px',
+            gap: 8,
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            scrollSnapType: 'x mandatory',
+            paddingBottom: 8,
+            // Hide native scrollbar while keeping scroll
+            scrollbarWidth: 'thin',
+            // Negative side margin so cards reach screen edges
+            marginInline: -16, paddingInline: 16,
+          }}
+        >
+          {available.map((p) => (
+            <div key={p.id} style={{ scrollSnapAlign: 'start' }}>
+              <DraggableLibraryItem preset={p} onTap={() => onTap(p)} disabled={installPending} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

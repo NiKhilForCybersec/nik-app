@@ -49,8 +49,8 @@ export const Widget = z.object({
   user_id: z.string().uuid(),
   widget_type: WidgetType,
   position: z.number().int(),
-  w: z.number().int().min(1).max(2),
-  h: z.number().int().min(1).max(2),
+  w: z.number().int().min(1).max(3),
+  h: z.number().int().min(1).max(3),
   config: z.record(z.string(), z.unknown()),
   archived_at: z.string().nullable(),
   created_at: z.string(),
@@ -89,8 +89,8 @@ export const widgets = {
     input: z.object({
       widgetType: WidgetType,
       position: z.number().int().min(0).optional(),
-      w: z.number().int().min(1).max(2).default(1),
-      h: z.number().int().min(1).max(2).default(1),
+      w: z.number().int().min(1).max(3).default(1),
+      h: z.number().int().min(1).max(3).default(1),
       config: z.record(z.string(), z.unknown()).default({}),
     }).strict(),
     output: Widget,
@@ -156,8 +156,8 @@ export const widgets = {
     tags: ['widgets', 'home'],
     input: z.object({
       id: z.string().uuid(),
-      w: z.number().int().min(1).max(2),
-      h: z.number().int().min(1).max(2),
+      w: z.number().int().min(1).max(3),
+      h: z.number().int().min(1).max(3),
     }).strict(),
     output: Widget,
     handler: async ({ sb }, { id, w, h }) => {
