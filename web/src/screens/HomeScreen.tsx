@@ -559,6 +559,10 @@ const DynamicWidgetCanvas: React.FC<{ onNav: (s: ScreenId) => void }> = ({ onNav
         display: 'grid',
         gridTemplateColumns: '1fr 1fr 1fr',
         gap: 8,
+        // `dense` packing closes 1×1-shaped holes by pulling later
+        // small widgets up — no empty cells in the canvas.
+        gridAutoFlow: 'row dense',
+        gridAutoRows: 'minmax(110px, auto)',
       }}>
         {widgets.map((w) => {
           const def = WIDGET_TYPES[w.widget_type as WidgetType];

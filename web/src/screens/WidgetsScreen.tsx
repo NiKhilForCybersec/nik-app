@@ -340,7 +340,14 @@ export default function WidgetsScreen(_p: ScreenProps) {
         <SortableContext items={ids} strategy={rectSortingStrategy}>
           <div
             onClick={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }}
-            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14 }}
+            style={{
+              display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 14,
+              // `dense` packing: when a wide/tall widget would leave a
+              // 1×1 hole earlier in the canvas, the next 1×1 widget
+              // backfills that hole instead of leaving empty space.
+              gridAutoFlow: 'row dense',
+              gridAutoRows: 'minmax(110px, auto)',
+            }}
           >
             {visibleList.map((w) => (
               <SortableWidget
@@ -414,19 +421,30 @@ export default function WidgetsScreen(_p: ScreenProps) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 22px)', gap: 5 }}>
               {([1, 2, 3] as const).flatMap((sh) => ([1, 2, 3] as const).map((sw) => {
                 const active = sw === cw && sh === ch;
+                // h=3 row is greyed: tall sizes (1×3, 2×3, 3×3) take so
+                // much vertical space they're impractical on a phone
+                // canvas. Still tappable — user can override — but
+                // visually de-emphasized to nudge toward 1×1…3×2.
+                const recommended = sh < 3;
                 return (
                   <button
                     key={`${sw}x${sh}`}
                     onClick={() => resize.mutateAsync({ id: selected.id, w: sw, h: sh })}
-                    aria-label={`${sw}×${sh}`}
+                    aria-label={`${sw}×${sh}${recommended ? '' : ' (not recommended)'}`}
                     style={{
                       width: 22, height: 22, borderRadius: 5,
-                      background: active ? `oklch(0.85 0.16 ${def?.hue ?? 220})` : `oklch(0.78 0.16 ${def?.hue ?? 220} / 0.18)`,
-                      border: `1px solid oklch(0.85 0.16 ${def?.hue ?? 220} / ${active ? 1 : 0.4})`,
+                      background: active
+                        ? `oklch(0.85 0.16 ${def?.hue ?? 220})`
+                        : recommended
+                          ? `oklch(0.78 0.16 ${def?.hue ?? 220} / 0.18)`
+                          : 'oklch(1 0 0 / 0.04)',
+                      border: `1px dashed oklch(${active ? '0.85' : '0.5'} 0.10 ${def?.hue ?? 220} / ${active ? 1 : recommended ? 0.4 : 0.20})`,
+                      borderStyle: recommended ? 'solid' : 'dashed',
                       cursor: 'pointer', padding: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: 8, fontFamily: 'var(--font-mono)', fontWeight: 600,
-                      color: active ? '#06060a' : 'transparent',
+                      color: active ? '#06060a' : recommended ? 'transparent' : 'var(--fg-3)',
+                      opacity: recommended ? 1 : 0.55,
                     }}
                   >
                     {`${sw}${sh}`}

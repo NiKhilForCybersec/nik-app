@@ -38,6 +38,26 @@ import type { WidgetType } from '../../contracts/widgets';
 export type WidgetUnit = 1 | 2 | 3;
 export type WidgetSize = { w: WidgetUnit; h: WidgetUnit };
 
+// Tier system — every widget should branch its render on this so
+// sizing feels consistent across the app. Picked over per-widget
+// custom branching because some widgets used to scale at "2x2 only",
+// others at "any wide size", etc., which was inconsistent.
+//
+//   mini  = 1×1
+//   wide  = 2×1, 3×1   (extra horizontal, no extra vertical)
+//   tall  = 1×2, 1×3   (extra vertical, no extra horizontal)
+//   hero  = 2×2, 2×3, 3×2, 3×3   (room in both directions)
+//
+export type WidgetTier = 'mini' | 'wide' | 'tall' | 'hero';
+export const getTier = (size: WidgetSize): WidgetTier => {
+  if (size.w === 1 && size.h === 1) return 'mini';
+  if (size.w >= 2 && size.h === 1) return 'wide';
+  if (size.w === 1 && size.h >= 2) return 'tall';
+  return 'hero';
+};
+// Cells the widget covers — useful for "show N items" decisions.
+export const cellArea = (size: WidgetSize) => size.w * size.h;
+
 export type WidgetRenderProps<TConfig = Record<string, unknown>> = {
   size: WidgetSize;
   config: TConfig;
@@ -56,8 +76,14 @@ export type WidgetDef<TConfig = Record<string, unknown>> = {
   hue: number;
   /** Default size when added. */
   defaultSize: WidgetSize;
-  /** Allowed sizes — picker restricts the resize chips. */
+  /** Every shape the widget will accept (kept for API compat). */
   allowedSizes: WidgetSize[];
+  /**
+   * Sizes that look great for this widget. Picker greys-out the
+   * other cells in the resize dock — they're still tappable, just
+   * marked as "not recommended" so the user / AI knows.
+   */
+  recommendedSizes: WidgetSize[];
   /** Zod validator + default for per-instance config. */
   configSchema: z.ZodType<TConfig>;
   /** The render component. */
@@ -216,7 +242,8 @@ const HydrationToday: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
 };
 
 const SleepLastNight: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
-  const { data: nights = [] } = useOp(sleepOps.recent, { limit: 1 });
+  const tier = getTier(size);
+  const { data: nights = [] } = useOp(sleepOps.recent, { limit: tier === 'hero' || tier === 'tall' ? 7 : 1 });
   const last = nights[0];
   const hours = last?.duration_min ? (last.duration_min / 60).toFixed(1) : '—';
   const score = last?.score ?? null;
@@ -231,6 +258,33 @@ const SleepLastNight: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
       <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 6, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
         {last ? 'SLEEP TIME' : 'NO DATA · LOG NIGHT →'}
       </div>
+      {/* Wide / hero: 7-night sparkline. */}
+      {(tier === 'wide' || tier === 'hero' || tier === 'tall') && nights.length > 0 && (
+        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px solid var(--hairline)' }}>
+          <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
+            LAST {nights.length} NIGHTS
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 36 }}>
+            {nights.slice().reverse().map((n) => {
+              const pct = Math.min(1, (n.duration_min ?? 0) / 540);
+              return (
+                <div key={n.id} style={{
+                  flex: 1, height: `${Math.max(8, pct * 100)}%`, borderRadius: 3,
+                  background: `linear-gradient(180deg, oklch(0.85 0.18 260), oklch(0.55 0.22 280))`,
+                  opacity: 0.4 + pct * 0.6,
+                }} />
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {/* Hero: stages breakdown for last night. */}
+      {tier === 'hero' && last?.stages && (
+        <div style={{ marginTop: 8, fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>
+          {last.hrv_ms != null && <span>HRV {last.hrv_ms}ms · </span>}
+          {last.resting_hr != null && <span>HR {last.resting_hr}</span>}
+        </div>
+      )}
     </WidgetShell>
   );
 };
@@ -517,16 +571,25 @@ const DiaryToday: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
 };
 
 const ActiveQuestProgress: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
-  const { data: list = [] } = useOp(questsOps.list, { status: 'active', limit: 1 });
+  const tier = getTier(size);
+  const limit = tier === 'hero' ? 5 : tier === 'tall' ? 3 : 1;
+  const { data: list = [] } = useOp(questsOps.list, { status: 'active', limit });
   const q = list[0];
   const hue = 30;
+  const titleSize = tier === 'hero' ? 22 : tier === 'wide' ? 18 : tier === 'tall' ? 16 : 14;
   return (
     <WidgetShell hue={hue} icon="sword" label="Active quest" size={size} onOpen={onOpen}
       accent={q ? <Chip tone="accent" size="sm">{q.rank}</Chip> : undefined}
     >
       {q ? (
-        <>
-          <div className="display" style={{ fontSize: size.w === 2 ? 18 : 14, fontWeight: 500, color: 'var(--fg-1)', lineHeight: 1.2, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 4 }}>
+          <div className="display" style={{
+            fontSize: titleSize, fontWeight: 500, color: 'var(--fg-1)', lineHeight: 1.25, marginBottom: 6,
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            whiteSpace: tier === 'mini' || tier === 'wide' ? 'nowrap' : 'normal',
+            display: tier === 'mini' || tier === 'wide' ? 'block' : '-webkit-box',
+            WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+          }}>
             {q.title}
           </div>
           {q.progress != null && <ProgressBar pct={q.progress as number} hue={hue} />}
@@ -538,9 +601,36 @@ const ActiveQuestProgress: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
               +{q.xp} XP
             </span>
           </div>
-        </>
+          {/* Hero / tall: stack other active quests below. */}
+          {(tier === 'hero' || tier === 'tall') && list.length > 1 && (
+            <div style={{ marginTop: 6, paddingTop: 8, borderTop: '1px solid var(--hairline)' }}>
+              <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
+                ALSO ACTIVE · {list.length - 1}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {list.slice(1).map((other) => (
+                  <div key={other.id}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                      <span style={{ color: 'var(--fg-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                        {other.title}
+                      </span>
+                      <span style={{ color: `oklch(0.85 0.14 ${hue})`, fontFamily: 'var(--font-mono)', fontSize: 9, marginLeft: 6 }}>
+                        {other.rank}
+                      </span>
+                    </div>
+                    {other.progress != null && (
+                      <div style={{ height: 2, borderRadius: 99, background: 'oklch(1 0 0 / 0.06)', overflow: 'hidden' }}>
+                        <div style={{ width: `${(other.progress as number) * 100}%`, height: '100%', background: `oklch(0.85 0.16 ${hue})` }} />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
-        <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4 }}>
+        <div style={{ fontSize: tier === 'hero' ? 14 : 12, color: 'var(--fg-3)', marginTop: 4 }}>
           No active quest. <span style={{ color: `oklch(0.85 0.16 ${hue})` }}>Start one →</span>
         </div>
       )}
@@ -558,11 +648,12 @@ const HabitRing: React.FC<WidgetRenderProps<{ habitId?: string }>> = ({ size, co
       <div style={{ fontSize: 12, color: 'var(--fg-3)' }}>No habit linked.</div>
     </WidgetShell>
   );
+  const tier = getTier(size);
   const pct = Math.min(1, habit.done / habit.target);
   const Ic = I[habit.icon as keyof typeof I] ?? I.check;
   const isDone = habit.done >= habit.target;
-  // Ring SVG geometry
-  const r = size.w === 2 || size.h === 2 ? 26 : 20;
+  // Ring radius scales with tier — hero gets a much bigger ring.
+  const r = tier === 'hero' ? 50 : tier === 'wide' || tier === 'tall' ? 32 : 22;
   const c = 2 * Math.PI * r;
   const offset = c * (1 - pct);
   const ringSize = r * 2 + 8;
@@ -609,22 +700,47 @@ const HabitRing: React.FC<WidgetRenderProps<{ habitId?: string }>> = ({ size, co
 };
 
 const NextQuest: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
-  const { data: list = [] } = useOp(questsOps.list, { status: 'pending', limit: 1 });
+  const tier = getTier(size);
+  const limit = tier === 'hero' ? 5 : tier === 'tall' ? 3 : 1;
+  const { data: list = [] } = useOp(questsOps.list, { status: 'pending', limit });
   const q = list[0];
   const hue = 260;
+  // Title font scales with tier so a 3×3 box doesn't show 13px text floating.
+  const titleSize = tier === 'hero' ? 22 : tier === 'wide' ? 17 : tier === 'tall' ? 15 : 13;
   return (
     <WidgetShell hue={hue} icon="sparkle" label="Next quest" size={size} onOpen={onOpen} glow
       accent={q ? <Chip tone="accent" size="sm">{q.rank}</Chip> : undefined}
     >
       {q ? (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 4 }}>
           <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 4 }}>
             QUEUED · NEXT UP
           </div>
-          <div className="display" style={{ fontSize: size.w === 2 ? 17 : 13, fontWeight: 500, color: 'var(--fg-1)', lineHeight: 1.2, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <div className="display" style={{
+            fontSize: titleSize, fontWeight: 500, color: 'var(--fg-1)', lineHeight: 1.25, marginBottom: 6,
+            overflow: 'hidden', textOverflow: 'ellipsis',
+            whiteSpace: tier === 'mini' || tier === 'wide' ? 'nowrap' : 'normal',
+            display: tier === 'mini' || tier === 'wide' ? 'block' : '-webkit-box',
+            WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
+          }}>
             {q.title}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+          {(tier === 'hero' || tier === 'tall') && list.length > 1 && (
+            <div style={{ marginTop: 4, paddingTop: 8, borderTop: '1px solid var(--hairline)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 2 }}>
+                AFTER · {list.length - 1} QUEUED
+              </div>
+              {list.slice(1, limit).map((other) => (
+                <div key={other.id} style={{ display: 'flex', alignItems: 'baseline', gap: 6, fontSize: 11 }}>
+                  <span style={{ color: `oklch(0.85 0.14 ${hue})`, fontFamily: 'var(--font-mono)', minWidth: 14, fontSize: 9 }}>{other.rank}</span>
+                  <span style={{ color: 'var(--fg-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {other.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 6 }}>
             <span style={{ fontSize: 10, color: `oklch(0.85 0.16 ${hue})`, fontFamily: 'var(--font-mono)' }}>
               +{q.xp ?? 0} XP
             </span>
@@ -636,9 +752,9 @@ const NextQuest: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
               START →
             </motion.span>
           </div>
-        </>
+        </div>
       ) : (
-        <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4, lineHeight: 1.4 }}>
+        <div style={{ fontSize: tier === 'hero' ? 14 : 12, color: 'var(--fg-3)', marginTop: 4, lineHeight: 1.4 }}>
           Nothing pending. <span style={{ color: `oklch(0.85 0.16 ${hue})` }}>Plan a quest →</span>
         </div>
       )}
@@ -647,39 +763,57 @@ const NextQuest: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
 };
 
 const TodayEvents: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
-  const { data: evts = [] } = useOp(eventsOps.list, { limit: 5 });
+  const tier = getTier(size);
+  const { data: evts = [] } = useOp(eventsOps.list, { limit: tier === 'hero' ? 6 : tier === 'tall' ? 4 : 5 });
   const today = evts.filter((e) => {
     if (!e.occurs_at) return false;
     const d = new Date(e.occurs_at);
     return d.toDateString() === new Date().toDateString();
   });
-  const next = today[0];
-  const time = next?.occurs_at
-    ? new Date(next.occurs_at).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' })
-    : null;
   return (
     <WidgetShell hue={200} icon="calendar" label="Today" size={size} onOpen={onOpen}
       accent={today.length > 0 ? <Chip tone="default" size="sm">{today.length}</Chip> : undefined}
     >
       {today.length > 0 ? (
-        <>
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 4 }}>
           <HeroNumber value={today.length} hue={200} size={size} gradient={[180, 240]} />
           <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginTop: 4, letterSpacing: 1 }}>
             {today.length === 1 ? 'EVENT' : 'EVENTS'}
           </div>
-          {next && (
+          {/* Mini / wide: just one "NEXT" preview line */}
+          {tier !== 'hero' && tier !== 'tall' && today[0] && (
             <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--hairline)', fontSize: 11 }}>
-              <div style={{ color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: 1, marginBottom: 2 }}>NEXT · {time?.toUpperCase()}</div>
+              <div style={{ color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: 1, marginBottom: 2 }}>
+                NEXT · {today[0].occurs_at ? new Date(today[0].occurs_at).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' }).toUpperCase() : ''}
+              </div>
               <div style={{ color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {next.title}
+                {today[0].title}
               </div>
             </div>
           )}
-        </>
+          {/* Hero / tall: full agenda */}
+          {(tier === 'hero' || tier === 'tall') && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--hairline)', display: 'flex', flexDirection: 'column', gap: 6, overflow: 'hidden' }}>
+              <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5 }}>
+                AGENDA
+              </div>
+              {today.map((e) => (
+                <div key={e.id} style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: 11 }}>
+                  <span style={{ color: 'oklch(0.85 0.14 200)', fontFamily: 'var(--font-mono)', minWidth: 48, fontSize: 10 }}>
+                    {e.occurs_at ? new Date(e.occurs_at).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' }) : '—'}
+                  </span>
+                  <span style={{ color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {e.title}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <>
           <HeroNumber value={'—'} hue={200} size={size} gradient={[180, 240]} />
-          <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 6, lineHeight: 1.4 }}>
+          <div style={{ fontSize: tier === 'hero' ? 13 : 11, color: 'var(--fg-3)', marginTop: 6, lineHeight: 1.4 }}>
             Nothing today. <span style={{ color: 'oklch(0.85 0.14 200)' }}>Add an event →</span>
           </div>
         </>
@@ -690,11 +824,14 @@ const TodayEvents: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
 
 const ListPreview: React.FC<WidgetRenderProps<{ kind?: string; limit?: number }>> = ({ size, config, onOpen }) => {
   const kind = (config.kind ?? 'reading') as z.infer<typeof ItemKind>;
-  const { data: items = [] } = useOp(itemsOps.list, { kind, limit: config.limit ?? 5 });
+  const tier = getTier(size);
+  const fetchLimit = tier === 'hero' ? 12 : tier === 'tall' ? 8 : 5;
+  const { data: items = [] } = useOp(itemsOps.list, { kind, limit: config.limit ?? fetchLimit });
   const open = items.filter((i) => i.status !== 'done');
   const done = items.filter((i) => i.status === 'done').length;
   const hue = 280;
-  const lines = size.h === 2 ? 6 : 3;
+  // Lines vary with tier: mini=2, wide=3, tall=6, hero(2x2)=5, hero(2x3/3x3)=10
+  const lines = tier === 'mini' ? 2 : tier === 'wide' ? 3 : tier === 'tall' ? 6 : (size.h === 3 ? 10 : 5);
   return (
     <WidgetShell hue={hue} icon="grid" label={kind} size={size} onOpen={onOpen}
       accent={items.length > 0 ? <Chip tone="default" size="sm">{open.length} OPEN</Chip> : undefined}
@@ -921,6 +1058,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'water', hue: 200,
     defaultSize: { w: 1, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }],
     configSchema: noConfig,
     Component: HydrationToday,
     navTarget: 'hydration',
@@ -931,6 +1069,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'moon', hue: 260,
     defaultSize: { w: 1, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 2, h: 2 }],
     configSchema: noConfig,
     Component: SleepLastNight,
     navTarget: 'sleep',
@@ -941,6 +1080,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'check', hue: 150,
     defaultSize: { w: 1, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 2, h: 2 }],
     configSchema: z.object({ habitId: z.string().uuid().optional() }) as unknown as z.ZodType<Record<string, unknown>>,
     Component: HabitRing,
     navTarget: 'habits',
@@ -951,6 +1091,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'sparkle', hue: 220,
     defaultSize: { w: 1, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }, { w: 3, h: 3 }],
     configSchema: noConfig,
     Component: ScoreGauge,
     navTarget: 'score',
@@ -961,6 +1102,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'flame', hue: 40,
     defaultSize: { w: 1, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 2, h: 2 }],
     configSchema: noConfig,
     Component: StreakCounter,
   },
@@ -970,6 +1112,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'sparkle', hue: 260,
     defaultSize: { w: 1, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }],
     configSchema: noConfig,
     Component: NextQuest,
     navTarget: 'quests',
@@ -980,6 +1123,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'sword', hue: 30,
     defaultSize: { w: 2, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }],
     configSchema: noConfig,
     Component: ActiveQuestProgress,
     navTarget: 'quests',
@@ -990,6 +1134,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'family', hue: 150,
     defaultSize: { w: 2, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }, { w: 3, h: 3 }],
     configSchema: noConfig,
     Component: FamilyPulse,
     navTarget: 'circle',
@@ -1000,6 +1145,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'book', hue: 320,
     defaultSize: { w: 2, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }, { w: 3, h: 3 }],
     configSchema: noConfig,
     Component: DiaryToday,
     navTarget: 'diary',
@@ -1010,6 +1156,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'calendar', hue: 280,
     defaultSize: { w: 2, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }],
     configSchema: noConfig,
     Component: NextEvent,
     navTarget: 'calendar',
@@ -1020,6 +1167,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'calendar', hue: 200,
     defaultSize: { w: 1, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 1, h: 1 }, { w: 2, h: 1 }, { w: 2, h: 2 }],
     configSchema: noConfig,
     Component: TodayEvents,
     navTarget: 'calendar',
@@ -1030,6 +1178,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'check', hue: 150,
     defaultSize: { w: 2, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }, { w: 2, h: 3 }, { w: 3, h: 3 }],
     configSchema: noConfig,
     Component: HabitsToday,
     navTarget: 'habits',
@@ -1040,6 +1189,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'brain', hue: 220,
     defaultSize: { w: 2, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 2, h: 2 }],
     configSchema: noConfig,
     Component: FocusStarter,
     navTarget: 'focus',
@@ -1050,6 +1200,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'flame', hue: 20,
     defaultSize: { w: 2, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 3, h: 2 }],
     configSchema: noConfig,
     Component: VitalsStrip,
     navTarget: 'fitness',
@@ -1060,6 +1211,7 @@ export const WIDGET_TYPES: Record<WidgetType, WidgetDef<any>> = {
     icon: 'grid', hue: 280,
     defaultSize: { w: 2, h: 1 },
     allowedSizes: ALL_SIZES,
+    recommendedSizes: [{ w: 2, h: 1 }, { w: 3, h: 1 }, { w: 2, h: 2 }, { w: 3, h: 2 }, { w: 2, h: 3 }, { w: 3, h: 3 }],
     configSchema: z.object({
       kind: z.string().default('reading'),
       limit: z.number().int().min(1).max(10).default(4),
