@@ -17,7 +17,8 @@ import { circle as circleOps } from '../contracts/circle';
 import { diary as diaryOps } from '../contracts/diary';
 import { events as eventsOps } from '../contracts/events';
 import { widgets as widgetsOps } from '../contracts/widgets';
-import { WIDGET_TYPES, type WidgetUnit } from '../components/widgets';
+import { ReadOnlyCanvas } from '../components/widgets/WidgetCanvas';
+import { WIDGET_TYPES } from '../components/widgets';
 import type { WidgetType } from '../contracts/widgets';
 import type { ScreenId } from '../types/app-state';
 
@@ -555,29 +556,15 @@ const DynamicWidgetCanvas: React.FC<{ onNav: (s: ScreenId) => void }> = ({ onNav
           EDIT <I.chevR size={12} stroke="var(--fg-3)" />
         </div>
       </div>
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: 8,
-        // `dense` packing closes 1×1-shaped holes by pulling later
-        // small widgets up — no empty cells in the canvas.
-        gridAutoFlow: 'row dense',
-        gridAutoRows: 'minmax(110px, auto)',
-      }}>
-        {widgets.map((w) => {
+      {/* Canvas — shared component used by both Home (this) and the
+          WidgetsScreen playground so layouts stay 1:1 identical. */}
+      <ReadOnlyCanvas
+        widgets={widgets}
+        onOpen={(w) => {
           const def = WIDGET_TYPES[w.widget_type as WidgetType];
-          if (!def) return null;
-          const Render = def.Component;
-          return (
-            <Render
-              key={w.id}
-              size={{ w: w.w as WidgetUnit, h: w.h as WidgetUnit }}
-              config={w.config}
-              onOpen={def.navTarget ? () => onNav(def.navTarget as ScreenId) : undefined}
-            />
-          );
-        })}
-      </div>
+          if (def?.navTarget) onNav(def.navTarget as ScreenId);
+        }}
+      />
     </section>
   );
 };

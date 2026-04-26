@@ -122,6 +122,11 @@ export const WidgetShell: React.FC<{
         borderColor: `oklch(0.78 0.16 ${hue} / 0.30)`,
         position: 'relative', overflow: 'hidden',
         display: 'flex', flexDirection: 'column', minHeight: 0,
+        // Fill the parent's height when wrapped (e.g. EditCanvas
+        // SortableItem) so the visual footprint matches direct grid
+        // placement (ReadOnlyCanvas). Without this the shell sized
+        // to its content and left a gap inside the wrapper.
+        height: '100%', boxSizing: 'border-box',
       }}
     >
       {glow && (
