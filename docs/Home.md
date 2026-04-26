@@ -5,10 +5,12 @@ Welcome to the Nik vault. Open this folder in [Obsidian](https://obsidian.md) an
 ## Start here
 
 - [[Architecture]] — what the app is, what's built, what wraps it
-- [[Build & Run]] — practical commands to develop and ship
 - [[Architectural Pillars]] — **READ THIS** — load-bearing rules that shape every decision
+- [[Hygiene]] — dev + memory hygiene, what survives a context wipe, the canonical feature loop
 - [[Registry]] — operations + commands + MCP, the keystone of "no wiring breaks"
 - [[Integrations]] — Gmail / WhatsApp / Calendar as MCP servers
+- [`INVENTORY.md`](../INVENTORY.md) — **flat register** of every contract / hook / helper / table / Edge Function
+- [[Build & Run]] — practical commands to develop and ship
 - [[Themes]] — the theme universe system
 - [[Data Model]] — current shapes (= implied backend schema)
 - [[Backlog]] — what's not yet built
