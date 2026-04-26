@@ -1,61 +1,112 @@
 /* Nik — Chat (AI voice + text) screen */
 import React from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { ScreenProps } from '../App';
 import { I } from '../components/icons';
 import { VoiceOrb, Waveform } from '../components/primitives';
 import { llm } from '../lib/llm';
 import { useCommand } from '../lib/useCommand';
+import { useAuth } from '../lib/auth';
+import { buildToolCatalog, executeToolCall } from '../lib/llm/tools';
+import type { LLMMessage, LLMToolCall } from '../lib/llm/types';
 
 type ChatMsg = {
   from: 'user' | 'ai';
   text: string;
   time: string;
-  actions?: string[];
+  /** Tool-call labels the AI made on this turn — shown as a small chip row. */
+  toolCalls?: { name: string; ok: boolean; error?: string }[];
 };
 
 const WELCOME: ChatMsg[] = [
-  { from: 'ai', text: "Hi — I'm Nik. Ask me anything, or tell me to do something. I can switch themes, navigate, add quests, and more.", time: 'now' },
+  { from: 'ai', text: "Hi — I'm Nik. Ask me anything, or tell me to do something. I can switch themes, navigate, add quests, log habits, and more.", time: 'now' },
 ];
+
+const SYSTEM_PROMPT = `You are Nik, an in-app personal assistant for the user's life-OS app.
+
+You have tools to read AND mutate the user's data: habits, quests, diary entries, sleep nights, score, family tasks, scheduled intents, memories, profile. You also have UI commands to switch themes, navigate, and toggle widgets. When the user asks you to do something, use the matching tool — do not just describe what you would do.
+
+After tools run successfully, give a one-sentence confirmation. Be concise.`;
+
+const TOOL_CATALOG = buildToolCatalog();
 
 export default function ChatScreen({ listening, onVoice, setState }: ScreenProps) {
   const [msgs, setMsgs] = React.useState<ChatMsg[]>(WELCOME);
   const [input, setInput] = React.useState('');
   const [thinking, setThinking] = React.useState(false);
   const scrollRef = React.useRef<HTMLDivElement | null>(null);
+  const dispatch = useCommand();
+  const { userId } = useAuth();
+  const qc = useQueryClient();
 
   React.useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [msgs, thinking]);
 
-  const dispatch = useCommand();
   const send = async (text: string) => {
     if (!text.trim()) return;
     const nu: ChatMsg[] = [...msgs, { from: 'user', text, time: 'now' }];
     setMsgs(nu);
     setInput('');
     setThinking(true);
+
+    // Build the conversation history for the LLM (system + user/assistant turns).
+    const llmHistory: LLMMessage[] = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...nu.map<LLMMessage>((m) => ({
+        role: m.from === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      })),
+    ];
+
     try {
-      const response = await llm.complete({
-        messages: [
-          { role: 'system', content: 'You are Nik, an in-app personal assistant. Be concise. Use tools when the user asks for an action.' },
-          ...nu.map((m): { role: 'user' | 'assistant'; content: string } => ({
-            role: m.from === 'user' ? 'user' : 'assistant',
-            content: m.text,
-          })),
-        ],
-      });
-      // Dispatch any UI commands the model wants to run.
-      for (const tc of response.toolCalls) {
-        if (tc.name.startsWith('ui.')) dispatch(tc.name, tc.arguments);
+      // Tool-use loop: call the LLM, execute any tool calls, feed results
+      // back, repeat. Cap at 4 hops to prevent runaway loops.
+      const executed: { name: string; ok: boolean; error?: string }[] = [];
+      let finalText = '';
+      let history = llmHistory;
+
+      for (let hop = 0; hop < 4; hop++) {
+        const response = await llm.complete({ messages: history, tools: TOOL_CATALOG });
+
+        if (!response.toolCalls.length) {
+          finalText = response.text || '…';
+          break;
+        }
+
+        // Append the assistant's tool-use turn.
+        history = [
+          ...history,
+          { role: 'assistant', content: response.text, toolCalls: response.toolCalls },
+        ];
+
+        // Execute each tool call and append its result.
+        for (const tc of response.toolCalls) {
+          const r = await executeToolCall(tc as LLMToolCall, { userId, dispatch });
+          executed.push({
+            name: r.registryName,
+            ok: !r.error,
+            error: r.error,
+          });
+          history = [
+            ...history,
+            {
+              role: 'tool',
+              tool_call_id: tc.id,
+              content: JSON.stringify(r.error ? { error: r.error } : r.result ?? { ok: true }),
+            },
+          ];
+        }
       }
+
+      // Any backend-op tool call mutated DB state — invalidate React Query.
+      if (executed.some((e) => e.ok && !e.name.startsWith('ui.'))) {
+        await qc.invalidateQueries();
+      }
+
       setMsgs([
         ...nu,
-        {
-          from: 'ai',
-          text: response.text || (response.toolCalls.length ? '✓ Done.' : '…'),
-          time: 'now',
-          actions: response.toolCalls.length ? undefined : ['Open reminder', 'Dismiss'],
-        },
+        { from: 'ai', text: finalText, time: 'now', toolCalls: executed.length ? executed : undefined },
       ]);
     } catch (e) {
       setMsgs([...nu, { from: 'ai', text: `Sorry — ${(e as Error).message}`, time: 'now' }]);
@@ -102,18 +153,16 @@ export default function ChatScreen({ listening, onVoice, setState }: ScreenProps
               backdropFilter: 'blur(20px)',
               fontSize: 13, lineHeight: 1.5, color: 'var(--fg)',
             }}>{m.text}</div>
-            {m.actions && (
+            {m.toolCalls && (
               <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
-                {m.actions.map(a => (
-                  <div key={a} className="tap" style={{
-                    padding: '5px 10px', borderRadius: 99, fontSize: 11,
-                    background: a === 'Confirm' || a === 'Open reminder' || a === 'Add quest'
-                      ? 'oklch(0.78 0.16 var(--hue) / 0.2)'
-                      : 'oklch(1 0 0 / 0.05)',
-                    border: '1px solid ' + (a === 'Confirm' || a === 'Open reminder' || a === 'Add quest' ? 'oklch(0.78 0.16 var(--hue) / 0.4)' : 'var(--hairline)'),
-                    color: a === 'Confirm' || a === 'Open reminder' || a === 'Add quest' ? 'oklch(0.9 0.14 var(--hue))' : 'var(--fg-2)',
-                    fontFamily: 'var(--font-body, Inter)', fontWeight: 500,
-                  }}>{a}</div>
+                {m.toolCalls.map((t, j) => (
+                  <div key={j} title={t.error ?? t.name} style={{
+                    padding: '4px 10px', borderRadius: 99, fontSize: 10,
+                    fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
+                    background: t.ok ? 'oklch(0.78 0.15 150 / 0.12)' : 'oklch(0.6 0.22 25 / 0.15)',
+                    border: '1px solid ' + (t.ok ? 'oklch(0.78 0.15 150 / 0.35)' : 'oklch(0.6 0.22 25 / 0.45)'),
+                    color: t.ok ? 'oklch(0.85 0.15 150)' : 'oklch(0.85 0.16 25)',
+                  }}>{t.ok ? '✓' : '✗'} {t.name}</div>
                 ))}
               </div>
             )}

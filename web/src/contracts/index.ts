@@ -35,23 +35,36 @@ export { familyOps } from './familyOps';
 export { profile } from './profile';
 export { quests } from './quests';
 
-// Flat registry — used by MCP tool generator + dev overlay.
-export const operations = {
-  ...habits,
-  ...intents,
-  ...memory,
-  ...events,
-  ...diary,
-  ...score,
-  ...sleep,
-  ...familyOps,
-  ...profile,
-  ...quests,
-} as const;
+// Flat registry — single source of truth consumed by MCP server,
+// dev overlay, and the in-app LLM tool catalog. Keyed by full dotted
+// name so collisions across namespaces (every namespace has a `list`,
+// `get`, `create`, etc.) don't silently overwrite ops.
+function flattenOps(...groups: Record<string, OperationDef<any, any>>[]): Record<string, OperationDef<any, any>> {
+  const out: Record<string, OperationDef<any, any>> = {};
+  for (const g of groups) {
+    for (const op of Object.values(g)) {
+      if (out[op.name]) throw new Error(`duplicate op name: ${op.name}`);
+      out[op.name] = op;
+    }
+  }
+  return out;
+}
+function flattenCmds(...groups: Record<string, CommandDef<any>>[]): Record<string, CommandDef<any>> {
+  const out: Record<string, CommandDef<any>> = {};
+  for (const g of groups) {
+    for (const cmd of Object.values(g)) {
+      if (out[cmd.name]) throw new Error(`duplicate command name: ${cmd.name}`);
+      out[cmd.name] = cmd;
+    }
+  }
+  return out;
+}
 
-export const commands = {
-  ...ui,
-} as const;
+export const operations = flattenOps(
+  habits, intents, memory, events, diary, score, sleep, familyOps, profile, quests,
+);
+
+export const commands = flattenCmds(ui);
 
 /** All operations + commands as a flat array, for the MCP server + tool catalog. */
 export const REGISTRY = {
@@ -59,6 +72,6 @@ export const REGISTRY = {
   commands: Object.values(commands) as CommandDef<any>[],
 } as const;
 
-/** The shape of every "thing Nik can do" name. Useful for switch statements. */
-export type OperationName = (typeof operations)[keyof typeof operations]['name'];
-export type CommandName = (typeof commands)[keyof typeof commands]['name'];
+/** The shape of every "thing Nik can do" name. */
+export type OperationName = keyof typeof operations;
+export type CommandName = keyof typeof commands;
