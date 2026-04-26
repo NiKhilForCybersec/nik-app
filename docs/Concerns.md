@@ -31,15 +31,6 @@ Earlier seed-lie sweep stripped profile defaults to honest 0 but on refresh widg
 ### 2026-04-26 · Today's Rituals (habits) section on Home should be a widget too
 "In today's ritual is also in the dashboard right even that should be widgets customizable right, it should be there in the widgets play screen everything and button all the options and full liberty to do in playscreen also". Convert habits-rituals + every other static Home block into widget types. Home becomes 100% widget-driven; nothing static. Playground has total control.
 
-### 2026-04-26 · Family search across other users (multi-tenant invite)
-Current `circle.add` only inserts rows in YOUR circle_members table — the "other person" doesn't know they're in your circle, doesn't share their data back. For real cross-account family:
-- `circle_invites` table: { token, owner_user_id, expires_at, max_uses, accepted_by? }
-- `circle.createInvite` → returns { token, qrPayload, code }
-- `circle.acceptInvite({ token })` → links the two users bidirectionally
-- UI: "Invite by code" + QR code display + "Enter code" input + (later) NFC tap-to-share
-- Privacy: each side controls what categories they share with the other; default minimal, opt-in to expand
-**Plan:** see [Backlog.md](Backlog.md#family-add-to-circle-tap-to-share-nfc--qr--code) — already exists with full architecture. **Estimate:** real session of work, ~3-5 hours.
-
 ### 2026-04-26 · MoreScreen tile sub-text is hardcoded
 Examples: "Diary · 184 entries · last 2h ago", "Focus Mode · 50 min · deep · forest", "Nik Score · 742 · +28 this week", "Daily Brief · ~4 min · audio · today". All in `web/src/screens/MoreScreen.tsx` `CATEGORIES` config. **Fix:** either (a) replace with stable descriptive text ("audio · curated", "tracker", etc.) or (b) wire each tile to its corresponding op (diary.list count, score.get total, etc.) — option (b) is N more useOp calls on a single screen which is heavy; (a) is the pragmatic fix.
 
@@ -109,6 +100,9 @@ Email/password only for v1. AuthScreen has SOON-badged Google/Apple/SAML. Saved 
 
 ### 2026-04-26 · Widget system v1 — full playground + AI install + dynamic Home (4 concerns folded in)
 Widgets contract + 12-component registry + `home_widgets` migration shipped. HomeScreen renders widgets dynamically from DB; auto-seeds defaults on first visit. WidgetsScreen rebuilt as a true mirror of Home — same bento, edit overlays per tile (✕ remove, ← → reorder, tap-resize chips), inline `+ ADD WIDGET` opens library, AI prompt at top routes through the LLM tool catalog. Mutations write through; Home auto-refreshes. Resolves: "WidgetsScreen needs full rebuild", "NEED: AI-powered widget playground", "Settings → Widgets not working", "Generic widget richness". Fixes: [195886c](https://github.com/NiKhilForCybersec/nik-app/commit/195886c) (data layer), [dd3cb70](https://github.com/NiKhilForCybersec/nik-app/commit/dd3cb70) (Phase 1 Home canvas), [a854861](https://github.com/NiKhilForCybersec/nik-app/commit/a854861) (Phase 2 playground).
+
+### 2026-04-26 · Family multi-tenant invite — QR/code + reciprocal accept
+circle_invites table + RLS + SECURITY DEFINER accept RPC + four contract ops (createInvite/listInvites/revokeInvite/acceptInvite) + InviteSheet UI on CircleScreen with Create/Accept tabs, gradient code display, copy-code/copy-link, pending invites strip with revoke. Two real users can now join each other's circles. NFC tap deferred to Capacitor mobile build. Fix: [b90faf6](https://github.com/NiKhilForCybersec/nik-app/commit/b90faf6).
 
 ### 2026-04-26 · MockLLM in chat → real Anthropic Claude
 Was using regex-pattern fallback. Now talks to real api.anthropic.com with OpenAI fallback. Fix: [48bb051](https://github.com/NiKhilForCybersec/nik-app/commit/48bb051).
