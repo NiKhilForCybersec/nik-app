@@ -196,8 +196,11 @@ export default function WidgetsScreen(_p: ScreenProps) {
   }, [list, optimistic]);
 
   const sensors = useSensors(
+    // Drag is now activator-only (the small handle on selected tiles
+    // + library cards), so we can use a small distance constraint
+    // instead of a long delay — feels snappier, no 200ms tap-and-hold.
     useSensor(PointerSensor, {
-      activationConstraint: { delay: 200, tolerance: 6 },
+      activationConstraint: { distance: 4 },
     }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
@@ -421,11 +424,12 @@ export default function WidgetsScreen(_p: ScreenProps) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 22px)', gap: 5 }}>
               {([1, 2, 3] as const).flatMap((sh) => ([1, 2, 3] as const).map((sw) => {
                 const active = sw === cw && sh === ch;
-                // h=3 row is greyed: tall sizes (1×3, 2×3, 3×3) take so
-                // much vertical space they're impractical on a phone
-                // canvas. Still tappable — user can override — but
-                // visually de-emphasized to nudge toward 1×1…3×2.
-                const recommended = sh < 3;
+                // 3×3 is greyed (still tappable) — fills the whole
+                // canvas viewport in a single widget which is rarely
+                // useful. Every other shape (1×1 through 3×2 and the
+                // 1×3/2×3 vertical stacks) is available and fully
+                // recommended.
+                const recommended = !(sw === 3 && sh === 3);
                 return (
                   <button
                     key={`${sw}x${sh}`}
@@ -476,7 +480,7 @@ const Header: React.FC<{ count: number }> = ({ count }) => (
   <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
     <div style={{ minWidth: 0 }}>
       <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
-        EDIT MODE · TAP-HOLD TO DRAG
+        EDIT MODE · TAP A TILE
       </div>
       <div className="display" style={{ fontSize: 24, fontWeight: 500, lineHeight: 1.1, marginTop: 4 }}>Your canvas</div>
     </div>
@@ -539,7 +543,7 @@ const SortableWidget: React.FC<{
   onSelect: () => void;
 }> = ({ widget, onRemove, onSetSize, isBeingDragged, isSelected, onSelect }) => {
   const def = WIDGET_TYPES[widget.widget_type as WidgetType];
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: widget.id });
 
   const setRefs = (node: HTMLDivElement | null) => {
@@ -578,13 +582,17 @@ const SortableWidget: React.FC<{
         : undefined,
     outlineOffset: isOver || isSelected ? 4 : 0,
     borderRadius: 16,
-    cursor: 'grab',
+    cursor: 'pointer',
     touchAction: 'manipulation',
+    // Stop the browser from selecting widget text when the user
+    // tap-holds anywhere on the tile.
+    userSelect: 'none',
+    WebkitUserSelect: 'none',
   };
 
   if (!def) {
     return (
-      <div ref={setRefs} style={style} {...attributes} {...listeners}>
+      <div ref={setRefs} style={style} {...attributes}>
         <div className="glass" style={{ padding: 12, fontSize: 12, color: 'var(--fg-3)' }}>
           Unknown “{widget.widget_type}”
           <button onClick={() => onRemove(widget.id)} style={{ marginLeft: 8, color: 'var(--fg-2)', background: 'none', border: 'none', cursor: 'pointer' }}>remove</button>
@@ -676,7 +684,6 @@ const SortableWidget: React.FC<{
       ref={(n) => { setRefs(n); tileRef.current = n; }}
       style={style}
       {...attributes}
-      {...listeners}
       onClick={(e) => { e.stopPropagation(); onSelect(); }}
     >
       {/* Tap-through disabled while editing. Render at the optimistic
@@ -684,6 +691,33 @@ const SortableWidget: React.FC<{
       <div style={{ pointerEvents: 'none' }}>
         <Render size={{ w, h }} config={widget.config} />
       </div>
+
+      {/* Drag handle — top-left, only visible when selected. Tap-hold
+          this to reorder. The whole tile is no longer a drag target,
+          so tap selects, drag-on-handle reorders. */}
+      {isSelected && (
+        <div
+          ref={setActivatorNodeRef}
+          {...listeners}
+          aria-label="Drag to reorder"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute', top: -6, left: -6, width: 28, height: 28, borderRadius: '50%',
+            background: `linear-gradient(135deg, oklch(0.78 0.16 ${def.hue}), oklch(0.55 0.22 ${(def.hue + 40) % 360}))`,
+            border: '1.5px solid var(--bg)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'grab', zIndex: 5, touchAction: 'none',
+            boxShadow: `0 4px 10px -2px oklch(0.78 0.16 ${def.hue} / 0.45)`,
+          }}
+        >
+          {/* Drag handle dots */}
+          <svg width="10" height="14" viewBox="0 0 10 14" fill="#06060a">
+            <circle cx="2.5" cy="3" r="1.4" /><circle cx="7.5" cy="3" r="1.4" />
+            <circle cx="2.5" cy="7" r="1.4" /><circle cx="7.5" cy="7" r="1.4" />
+            <circle cx="2.5" cy="11" r="1.4" /><circle cx="7.5" cy="11" r="1.4" />
+          </svg>
+        </div>
+      )}
 
       {/* ✕ remove */}
       <button

@@ -191,52 +191,75 @@ const HydrationToday: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
   const pct = total / goal;
   const hue = 200;
   const intakes = (data?.intakes ?? []) as { ml: number; occurred_at: string }[];
-  const isLarge = size.w >= 2 && size.h >= 2;
-  const isWide = size.w >= 2;
+  const tier = getTier(size);
+  // Hydration content tiers:
+  //   mini  (1×1)  → number + bar
+  //   wide  (2-3 × 1) → + horizontal cup row
+  //   tall  (1 × 2-3) → + vertical cup stack + recent intakes
+  //   hero  (≥2 × ≥2) → + cup row + timeline
+  const showCups = tier !== 'mini';
+  const showIntakes = (tier === 'hero' || tier === 'tall') && intakes.length > 0;
   return (
     <WidgetShell hue={hue} icon="water" label="Hydration today" size={size} onOpen={onOpen} glow
       accent={<Chip tone="accent" size="sm">{Math.round(Math.min(1, pct) * 100)}%</Chip>}
     >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <HeroNumber value={total} hue={hue} size={size} gradient={[180, 240]} />
-        <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>/ {goal} ml</div>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: 8 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+            <HeroNumber value={total} hue={hue} size={size} gradient={[180, 240]} />
+            <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>/ {goal} ml</div>
+          </div>
+          <ProgressBar pct={pct} hue={hue} />
+        </div>
+        {/* Cups: horizontal at wide/hero, vertical at tall */}
+        {showCups && tier !== 'tall' && (
+          <div style={{ display: 'flex', gap: 4 }}>
+            {Array.from({ length: 8 }).map((_, i) => {
+              const filled = i < Math.round(pct * 8);
+              return (
+                <div key={i} style={{
+                  flex: 1, height: 14, borderRadius: 4,
+                  background: filled ? `linear-gradient(180deg, oklch(0.78 0.16 ${hue}), oklch(0.6 0.20 ${hue + 30}))` : `oklch(0.78 0.16 ${hue} / 0.10)`,
+                  border: `1px solid oklch(0.78 0.16 ${hue} / ${filled ? 0.6 : 0.25})`,
+                }} />
+              );
+            })}
+          </div>
+        )}
+        {showCups && tier === 'tall' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1 }}>
+            {Array.from({ length: 8 }).map((_, i) => {
+              const filled = i < Math.round(pct * 8);
+              return (
+                <div key={i} style={{
+                  flex: 1, minHeight: 8, borderRadius: 4,
+                  background: filled ? `linear-gradient(90deg, oklch(0.78 0.16 ${hue}), oklch(0.6 0.20 ${hue + 30}))` : `oklch(0.78 0.16 ${hue} / 0.10)`,
+                  border: `1px solid oklch(0.78 0.16 ${hue} / ${filled ? 0.6 : 0.25})`,
+                }} />
+              );
+            })}
+          </div>
+        )}
+        {showIntakes && (
+          <div style={{ marginTop: 'auto', paddingTop: 8, borderTop: '1px solid var(--hairline)' }}>
+            <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
+              RECENT · {intakes.length} TODAY
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {intakes.slice(0, size.h === 3 ? 8 : 5).map((iv, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
+                  <span style={{ color: `oklch(0.85 0.14 ${hue})`, fontFamily: 'var(--font-mono)', minWidth: 38 }}>
+                    {iv.ml}ml
+                  </span>
+                  <span style={{ color: 'var(--fg-3)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
+                    {new Date(iv.occurred_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
-      <ProgressBar pct={pct} hue={hue} />
-      {/* 8 cup glyphs at wide sizes (2×1+) */}
-      {isWide && (
-        <div style={{ display: 'flex', gap: 4, marginTop: 10 }}>
-          {Array.from({ length: 8 }).map((_, i) => {
-            const filled = i < Math.round(pct * 8);
-            return (
-              <div key={i} style={{
-                flex: 1, height: 14, borderRadius: 4,
-                background: filled ? `linear-gradient(180deg, oklch(0.78 0.16 ${hue}), oklch(0.6 0.20 ${hue + 30}))` : `oklch(0.78 0.16 ${hue} / 0.10)`,
-                border: `1px solid oklch(0.78 0.16 ${hue} / ${filled ? 0.6 : 0.25})`,
-              }} />
-            );
-          })}
-        </div>
-      )}
-      {/* Recent intake timeline at hero sizes (2×2+) */}
-      {isLarge && intakes.length > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--hairline)' }}>
-          <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
-            RECENT · {intakes.length} TODAY
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 110, overflow: 'hidden' }}>
-            {intakes.slice(0, 5).map((iv, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}>
-                <span style={{ color: `oklch(0.85 0.14 ${hue})`, fontFamily: 'var(--font-mono)', minWidth: 38 }}>
-                  {iv.ml}ml
-                </span>
-                <span style={{ color: 'var(--fg-3)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
-                  {new Date(iv.occurred_at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </WidgetShell>
   );
 };
@@ -304,14 +327,15 @@ const ScoreGauge: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
   }));
   const deltaColor = delta > 0 ? 'oklch(0.78 0.18 145)' : delta < 0 ? 'oklch(0.78 0.18 25)' : 'var(--fg-3)';
   const deltaText = delta === 0 ? '—' : `${delta > 0 ? '+' : ''}${delta}`;
-  const isLarge = size.w >= 2 && size.h >= 2;
+  const tier = getTier(size);
+  const expanded = tier === 'hero' || tier === 'tall';
   return (
     <WidgetShell hue={220} icon="sparkle" label="Nik Score" size={size} onOpen={onOpen} glow
       accent={<span style={{ fontSize: 10, color: deltaColor, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>{deltaText}</span>}
     >
       <HeroNumber value={total} hue={220} size={size} gradient={[200, 280]} />
       {/* Compact pillar bars at small sizes */}
-      {!isLarge && (
+      {!expanded && (
         <>
           <div style={{ display: 'flex', gap: 3, marginTop: 10 }}>
             {pillars.map((p, i) => (
@@ -330,8 +354,8 @@ const ScoreGauge: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
           </div>
         </>
       )}
-      {/* Full pillar list at hero sizes */}
-      {isLarge && (
+      {/* Full pillar list at hero / tall sizes */}
+      {expanded && (
         <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {pillars.map((p, i) => (
             <div key={p.label}>
