@@ -172,10 +172,14 @@ After `npm i`, run `npx cap sync ios` and Xcode will pick up the native side. Ea
 
 | Topic | File |
 |---|---|
-| Architectural rules (don't drift) | [docs/Architectural Pillars.md](docs/Architectural%20Pillars.md) |
+| Architectural rules (don't drift) | [docs/Architectural Pillars.md](docs/Architectural%20Pillars.md), [docs/Policy.md](docs/Policy.md) |
+| Per-feature rules | [docs/Rules.md](docs/Rules.md) |
+| **In-app AI agent architecture (12-pattern audit + roadmap)** | [docs/AgentArchitecture.md](docs/AgentArchitecture.md) |
 | Operations + Commands registry | [docs/Registry.md](docs/Registry.md), code at [web/src/contracts/](web/src/contracts/) |
 | Gmail / WhatsApp / Calendar plan | [docs/Integrations.md](docs/Integrations.md) |
-| What's not done yet | [docs/Backlog.md](docs/Backlog.md) |
+| What's not done yet | [docs/Backlog.md](docs/Backlog.md), [docs/NextSteps.md](docs/NextSteps.md) |
+| User concerns log (always update) | [docs/Concerns.md](docs/Concerns.md) |
+| Production / deploy | [docs/Production.md](docs/Production.md), [docs/legal/](docs/legal/) |
 | Why we picked X over Y | [docs/Decisions/](docs/Decisions/) |
 | Per-screen behavior | [docs/Screens/](docs/Screens/) |
 | MCP server implementation | [packages/mcp-nik/](packages/mcp-nik/) |

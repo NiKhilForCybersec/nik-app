@@ -30,6 +30,12 @@ The app has 59 screens but the widget library exposes only ~14 widget types. The
 - Phase 2: add dedicated widgets for screens with rich data: Money summary, Family ops pending, Cycle phase, Brief today, Network catch-up due, Doctors next-appt, Plants next-water, Pets status, Travel next-trip, Subscriptions due, Achievements recent.
 - Goal: every screen the user spends time on is one tap away on Home via a widget.
 
+### 2026-04-26 · In-app AI agent — 12 advanced-pattern upgrade plan
+User shared a 12-pattern checklist for what an "advanced agent" should have (persistent instruction file, scoped context assembly, tiered memory, dream consolidation, progressive context compaction, Explore→Plan→Act loop, context-isolated subagents, fork-join parallelism, progressive tool expansion, command risk classification, single-purpose tool design, deterministic lifecycle hooks). Audited the in-app Nik AI against each — full gap analysis + ordered roadmap (~15h to advanced-agent status) at [docs/AgentArchitecture.md](AgentArchitecture.md). Memory: `project_agent_architecture_plan.md`. **Status:** plan written, implementation pending. **Focus order:** persistent instructions + confirm-op enforcement → scoped tool catalog + warm memory tier → context compaction + lifecycle hooks → dream consolidation → planning preamble → (parallelism, subagents, progressive tools deferred until needed).
+
+### 2026-04-26 · Profile consolidation — settings + utilities under one roof
+User: "profile settings should have all the features of that, app settings and utilities — think of a better idea for this." Avatar-tap to /profile is now wired (commit 3f4fbda). Pending: redesign ProfileScreen to absorb SettingsScreen + utility tiles (theme, density, notifications, data export, privacy controls, sign-out, dev tools) into a single sectioned layout. **Why:** today they're scattered across Profile + Settings + More tab.
+
 ### 2026-04-26 · Don't move to cloud / TestFlight without explicit user approval
 "Each and every screen should be perfect and awesome only then we are moving to cloud and other; till then we will be here and I am the one who will be finally approving to move anywhere." Stay local. Saved to memory as `feedback_user_approves_cloud.md`.
 
