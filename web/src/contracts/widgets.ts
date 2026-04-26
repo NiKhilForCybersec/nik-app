@@ -23,15 +23,19 @@ export const WidgetType = z.enum([
   'hydration_today',
   'sleep_last_night',
   'habit_ring',
+  'vitals_strip',           // steps · HR · kcal preview (placeholder until HealthKit)
   // Mind / scoring
   'score_gauge',
   'streak_counter',
   'next_quest',
   'active_quest_progress',
+  'habits_today',           // today's rituals — N of M done + closest-to-complete
   // People
   'family_pulse',
   // Memory
   'diary_today',
+  // Focus
+  'focus_starter',          // begin a focus session
   // Calendar / events
   'next_event',
   'today_events',
@@ -231,14 +235,21 @@ export const widgets = {
         .is('archived_at', null);
       // Install defaults — sensible starter canvas matching the
       // existing static Home layout shape.
+      // Default canvas is now a full Home replacement — every "static
+      // bento" block on the old Home is here as a widget so the
+      // playground is the single source of truth for what the user sees.
       const defaults: { widget_type: WidgetType; w: 1 | 2; h: 1 | 2; config: Record<string, unknown> }[] = [
-        { widget_type: 'hydration_today',        w: 1, h: 1, config: {} },
+        { widget_type: 'habits_today',           w: 2, h: 1, config: {} },
         { widget_type: 'streak_counter',         w: 1, h: 1, config: {} },
         { widget_type: 'score_gauge',            w: 1, h: 1, config: {} },
+        { widget_type: 'hydration_today',        w: 1, h: 1, config: {} },
+        { widget_type: 'sleep_last_night',       w: 1, h: 1, config: {} },
         { widget_type: 'active_quest_progress',  w: 2, h: 1, config: {} },
+        { widget_type: 'focus_starter',          w: 2, h: 1, config: {} },
         { widget_type: 'next_event',             w: 2, h: 1, config: {} },
         { widget_type: 'family_pulse',           w: 2, h: 1, config: {} },
         { widget_type: 'diary_today',            w: 2, h: 1, config: {} },
+        { widget_type: 'vitals_strip',           w: 2, h: 1, config: {} },
       ];
       const rows = defaults.map((d, i) => ({ ...d, user_id: userId, position: i }));
       const { error: insErr, data } = await sb.from('home_widgets').insert(rows).select();

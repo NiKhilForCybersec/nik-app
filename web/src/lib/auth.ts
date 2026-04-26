@@ -72,9 +72,12 @@ export async function signInWithPassword(email: string, password: string): Promi
   if (signed.error || !signed.data.session) {
     // Auto sign-up if user doesn't exist (only on local dev).
     if (isLocalSupabase) {
+      // Don't auto-derive a display name from email — that produced
+      // "Arjun" for arjun@local.dev and looked like hardcoded demo
+      // content. Real users set their own name in Profile / Onboarding.
       const up = await supabase.auth.signUp({
         email, password,
-        options: { data: { name: email.split('@')[0] } },
+        options: { data: {} },
       });
       if (up.error) throw up.error;
       if (!up.data.session) throw new Error('Sign-up succeeded but no session — check email confirmation.');
