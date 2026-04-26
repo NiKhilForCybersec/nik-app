@@ -50,9 +50,9 @@ _React hooks, helpers, the LLM router, the Supabase client._
 | [web/src/lib/llm/index.ts](../web/src/lib/llm/index.ts) | `AnthropicProvider`, `LLMRouter`, `OpenAIProvider`, `llm` |
 | [web/src/lib/llm/openai.ts](../web/src/lib/llm/openai.ts) | `OpenAIProvider` |
 | _OpenAI provider — calls GPT via the Chat Completions API._ | |
-| [web/src/lib/llm/router.ts](../web/src/lib/llm/router.ts) | `LLMRouter`, `llm` |
+| [web/src/lib/llm/router.ts](../web/src/lib/llm/router.ts) | `LLMCallRecord`, `LLMRouter`, `llm` |
 | _Picks a provider per request based on:_ | |
-| [web/src/lib/llm/tools.ts](../web/src/lib/llm/tools.ts) | `ExecuteCtx`, `ExecuteResult`, `buildToolCatalog`, `executeToolCall` |
+| [web/src/lib/llm/tools.ts](../web/src/lib/llm/tools.ts) | `ExecuteCtx`, `ExecuteResult`, `OpCallRecord`, `buildToolCatalog`, `executeToolCall`, `getCmdRegistry`, `getOpRegistry`, `onOpCalls`, `recentOpCalls` |
 | _Bridges the Operations + Commands registry into the LLM tool-use loop._ | |
 | [web/src/lib/llm/types.ts](../web/src/lib/llm/types.ts) | `LLMComplexity`, `LLMMessage`, `LLMProvider`, `LLMRequest`, `LLMResponse`, `LLMRole`, `LLMTool`, `LLMToolCall` |
 | _The shared shape every model-backed provider implements: cloud_ | |
@@ -108,6 +108,10 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/CoupleScreen.manifest.ts](../web/src/screens/CoupleScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/CoupleScreen.tsx](../web/src/screens/CoupleScreen.tsx) | `*default*`, `CoupleScreen` |
+| [web/src/screens/DevScreen.manifest.ts](../web/src/screens/DevScreen.manifest.ts) | `manifest` |
+| _Dev console — gated on import.meta.env.DEV. Doesn't read any single_ | |
+| [web/src/screens/DevScreen.tsx](../web/src/screens/DevScreen.tsx) | `*default*`, `DevScreen` |
+| _DEV-ONLY safety net. Visible only when `import.meta.env.DEV` is true,_ | |
 | [web/src/screens/DiaryScreen.manifest.ts](../web/src/screens/DiaryScreen.manifest.ts) | `manifest` |
 | [web/src/screens/DiaryScreen.tsx](../web/src/screens/DiaryScreen.tsx) | `*default*`, `DiaryScreen` |
 | _Daily diary with thoughts, photos, videos, voice, mood, AI prompts,_ | |
@@ -167,7 +171,6 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/WidgetsScreen.manifest.ts](../web/src/screens/WidgetsScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/WidgetsScreen.tsx](../web/src/screens/WidgetsScreen.tsx) | `*default*`, `WidgetsScreen` |
-| [web/src/screens/_PlaceholderScreen.tsx](../web/src/screens/_PlaceholderScreen.tsx) | `makePlaceholder` |
 | [web/src/screens/manifests.ts](../web/src/screens/manifests.ts) | `REACHABLE_COMMANDS`, `REACHABLE_OPS`, `SCREEN_MANIFESTS` |
 | _Aggregate screen manifests — auto-imports every <Name>Screen.manifest.ts_ | |
 
@@ -202,6 +205,6 @@ _Shared type-only modules._
 
 ---
 
-**Stats**: 92 files, 274 exports.
+**Stats**: 93 files, 282 exports.
 
-**Last regenerated**: 2026-04-26T04:33:29.941Z.
+**Last regenerated**: 2026-04-26T05:05:45.836Z.

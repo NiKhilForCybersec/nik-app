@@ -46,6 +46,7 @@ import QuestsScreen from './screens/QuestsScreen';
 import WidgetsScreen from './screens/WidgetsScreen';
 import StatsScreen from './screens/StatsScreen';
 import ComingSoonScreen from './screens/ComingSoonScreen';
+import DevScreen from './screens/DevScreen';
 
 export type { ScreenId, AppState } from './types/app-state';
 import type { ScreenId, AppState as AppStateBase } from './types/app-state';
@@ -179,6 +180,10 @@ export default function App() {
       case 'widgets': return <WidgetsScreen {...screenProps} />;
       case 'stats': return <StatsScreen {...screenProps} />;
       case 'comingsoon': return <ComingSoonScreen {...screenProps} />;
+      case 'dev':
+        return import.meta.env.DEV
+          ? <DevScreen {...screenProps} />
+          : <HomeScreen {...screenProps} />;
       default: return <HomeScreen {...screenProps} />;
     }
   };

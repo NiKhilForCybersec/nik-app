@@ -270,6 +270,11 @@ export default function ProfileScreen({ onNav: _onNav, state, setState }: Screen
             <Chip tone="default" size="md">Privacy</Chip>
             <Chip tone="default" size="md">Terms</Chip>
             <Chip tone="default" size="md">Reset Nik</Chip>
+            {import.meta.env.DEV && (
+              <div onClick={() => { setState?.((x) => ({ ...x, screen: 'dev' as any })); }} className="tap" style={{ display: 'inline-flex' }}>
+                <Chip tone="accent" size="md">Dev console</Chip>
+              </div>
+            )}
             <div onClick={() => { void signOut(); }} className="tap" style={{ display: 'inline-flex' }}>
               <Chip tone="danger" size="md">Sign out</Chip>
             </div>

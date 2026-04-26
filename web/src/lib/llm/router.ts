@@ -48,9 +48,33 @@ function classify(req: LLMRequest): LLMComplexity {
   return 'medium';
 }
 
+/** A single LLM call recorded for the dev console. Ring-buffered in
+ *  memory only — never persisted, never shipped to anyone. */
+export type LLMCallRecord = {
+  id: string;
+  startedAt: number;
+  provider: string;
+  model: string;
+  complexity: LLMComplexity;
+  ok: boolean;
+  error?: string;
+  latencyMs?: number;
+  inputTokens?: number;
+  outputTokens?: number;
+  toolCallCount: number;
+  preview: string;        // first 80 chars of last user message
+  responsePreview: string; // first 80 chars of assistant text
+};
+
+const RING_MAX = 100;
+
 export class LLMRouter {
   /** Order matters — first available provider that handles the picked tier wins. */
   private providers: LLMProvider[];
+
+  /** In-memory ring buffer of recent calls — drives the dev console. */
+  private calls: LLMCallRecord[] = [];
+  private listeners = new Set<() => void>();
 
   constructor(providers?: LLMProvider[]) {
     this.providers = providers ?? [
@@ -58,6 +82,22 @@ export class LLMRouter {
       new AnthropicProvider(),  // primary
       new OpenAIProvider(),     // fallback
     ];
+  }
+
+  /** Recent calls, newest first. Used by the dev console. */
+  recentCalls(): readonly LLMCallRecord[] {
+    return this.calls;
+  }
+
+  /** Subscribe to call-log updates. Returns unsubscribe. */
+  onCalls(fn: () => void): () => void {
+    this.listeners.add(fn);
+    return () => this.listeners.delete(fn);
+  }
+
+  private record(rec: LLMCallRecord) {
+    this.calls = [rec, ...this.calls].slice(0, RING_MAX);
+    for (const l of this.listeners) l();
   }
 
   /** Returns the chosen provider + complexity (without calling it). */
@@ -78,7 +118,29 @@ export class LLMRouter {
 
   async complete(req: LLMRequest): Promise<LLMResponse> {
     const { provider, complexity } = this.pick(req);
-    return provider.complete({ ...req, complexity });
+    const startedAt = Date.now();
+    const lastUser = [...req.messages].reverse().find((m) => m.role === 'user');
+    const preview = (((lastUser as { content?: string } | undefined)?.content) ?? '').slice(0, 80);
+    const id = `${startedAt}-${Math.random().toString(36).slice(2, 8)}`;
+    try {
+      const r = await provider.complete({ ...req, complexity });
+      this.record({
+        id, startedAt, provider: r.provider, model: r.model, complexity,
+        ok: true, latencyMs: r.latencyMs,
+        inputTokens: r.usage?.inputTokens, outputTokens: r.usage?.outputTokens,
+        toolCallCount: r.toolCalls.length, preview,
+        responsePreview: (r.text ?? '').slice(0, 80),
+      });
+      return r;
+    } catch (e) {
+      this.record({
+        id, startedAt, provider: provider.id, model: '?', complexity,
+        ok: false, error: (e as Error).message,
+        latencyMs: Date.now() - startedAt,
+        toolCallCount: 0, preview, responsePreview: '',
+      });
+      throw e;
+    }
   }
 
   /** Used by the model-picker UI in Settings. */

@@ -18,6 +18,37 @@ import { supabase } from '../supabase';
 import type { LLMTool, LLMToolCall } from './types';
 import { zodToJsonSchema } from './zodToJsonSchema';
 
+// ── Dev-console call recorder ──────────────────────────────
+// In-memory ring buffer of every op + UI command that's been invoked
+// (via the AI tool-use loop, the dev console invoke form, or any other
+// caller through `executeToolCall`). Drives the Registry panel.
+export type OpCallRecord = {
+  id: string;
+  at: number;
+  name: string;          // dotted registry name
+  ok: boolean;
+  error?: string;
+  durationMs: number;
+  source: 'ai' | 'dev' | 'unknown';
+};
+
+const OP_RING_MAX = 200;
+const opRing: OpCallRecord[] = [];
+const opListeners = new Set<() => void>();
+
+export function recentOpCalls(): readonly OpCallRecord[] {
+  return opRing;
+}
+export function onOpCalls(fn: () => void): () => void {
+  opListeners.add(fn);
+  return () => opListeners.delete(fn);
+}
+function recordOp(rec: OpCallRecord) {
+  opRing.unshift(rec);
+  if (opRing.length > OP_RING_MAX) opRing.length = OP_RING_MAX;
+  for (const l of opListeners) l();
+}
+
 const NAME_SEP = '__';
 const toLLMName = (name: string) => name.replace(/\./g, NAME_SEP);
 const fromLLMName = (name: string) => name.replace(new RegExp(NAME_SEP, 'g'), '.');
@@ -34,6 +65,15 @@ for (const op of Object.values(operations) as OperationDef<unknown, unknown>[]) 
 const cmdByName = new Map<string, CommandDef<unknown>>();
 for (const cmd of Object.values(commands) as CommandDef<unknown>[]) {
   cmdByName.set(cmd.name, cmd);
+}
+
+/** All registered ops keyed by full dotted name (`habits.list` etc). */
+export function getOpRegistry(): ReadonlyMap<string, OperationDef<unknown, unknown>> {
+  return opByName;
+}
+/** All registered UI commands keyed by full dotted name (`ui.switchTheme` etc). */
+export function getCmdRegistry(): ReadonlyMap<string, CommandDef<unknown>> {
+  return cmdByName;
 }
 
 export function buildToolCatalog(): LLMTool[] {
@@ -59,6 +99,8 @@ export function buildToolCatalog(): LLMTool[] {
 export type ExecuteCtx = {
   userId?: string;
   dispatch: (name: string, args: Record<string, unknown>) => unknown;
+  /** Where the call came from. Defaults to 'ai'. */
+  source?: 'ai' | 'dev';
 };
 
 export type ExecuteResult = {
@@ -80,27 +122,37 @@ export async function executeToolCall(
 ): Promise<ExecuteResult> {
   const registryName = fromLLMName(tc.name);
   const base: Pick<ExecuteResult, 'toolCall' | 'registryName'> = { toolCall: tc, registryName };
+  const source = ctx.source ?? 'ai';
+  const startedAt = Date.now();
 
   // UI commands → dispatch via CommandBus.
   if (registryName.startsWith('ui.')) {
     try {
       ctx.dispatch(registryName, tc.arguments);
+      recordOp({ id: `${startedAt}-${Math.random().toString(36).slice(2, 6)}`, at: startedAt, name: registryName, ok: true, durationMs: Date.now() - startedAt, source });
       return { ...base, ui: true, result: { ok: true } };
     } catch (e) {
-      return { ...base, ui: true, result: null, error: (e as Error).message };
+      const err = (e as Error).message;
+      recordOp({ id: `${startedAt}-${Math.random().toString(36).slice(2, 6)}`, at: startedAt, name: registryName, ok: false, error: err, durationMs: Date.now() - startedAt, source });
+      return { ...base, ui: true, result: null, error: err };
     }
   }
 
   // Backend op → run against Supabase as the current user.
   const op = opByName.get(registryName);
   if (!op) {
-    return { ...base, ui: false, result: null, error: `unknown tool: ${registryName}` };
+    const err = `unknown tool: ${registryName}`;
+    recordOp({ id: `${startedAt}-${Math.random().toString(36).slice(2, 6)}`, at: startedAt, name: registryName, ok: false, error: err, durationMs: 0, source });
+    return { ...base, ui: false, result: null, error: err };
   }
   try {
     const parsed = op.input.parse(tc.arguments);
     const result = await op.handler({ sb: supabase, userId: ctx.userId }, parsed);
+    recordOp({ id: `${startedAt}-${Math.random().toString(36).slice(2, 6)}`, at: startedAt, name: registryName, ok: true, durationMs: Date.now() - startedAt, source });
     return { ...base, ui: false, result };
   } catch (e) {
-    return { ...base, ui: false, result: null, error: (e as Error).message };
+    const err = (e as Error).message;
+    recordOp({ id: `${startedAt}-${Math.random().toString(36).slice(2, 6)}`, at: startedAt, name: registryName, ok: false, error: err, durationMs: Date.now() - startedAt, source });
+    return { ...base, ui: false, result: null, error: err };
   }
 }

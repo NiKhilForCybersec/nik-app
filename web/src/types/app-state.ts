@@ -7,7 +7,7 @@ export type ScreenId =
   | 'score' | 'sleep' | 'money' | 'brief' | 'vault' | 'errands'
   | 'couple' | 'kids' | 'onboard' | 'settings'
   | 'quests' | 'voice' | 'widgets' | 'stats'
-  | 'comingsoon';
+  | 'comingsoon' | 'dev';
 
 export type AppState = {
   screen: ScreenId;
