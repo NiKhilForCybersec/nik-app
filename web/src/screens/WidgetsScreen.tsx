@@ -56,7 +56,21 @@ import type { LLMMessage, LLMToolCall } from '../lib/llm/types';
 
 const ALL_TYPES = Object.keys(WIDGET_TYPES) as WidgetType[];
 const TOOL_CATALOG = buildToolCatalog();
-const SYSTEM_PROMPT = `You manage the user's home-screen widgets. Use widgets.install / widgets.move / widgets.resize / widgets.remove to do exactly what the user asks. After tools run, give a one-line confirmation. Be concise.`;
+const SYSTEM_PROMPT = `You manage the user's home-screen widgets. Use widgets.install / widgets.move / widgets.resize / widgets.remove to do exactly what the user asks.
+
+WIDGET GRID RULES (mirror what the playground enforces):
+• The canvas is a 2-column grid that auto-flows top-to-bottom.
+• Every widget has w ∈ {1, 2} and h ∈ {1, 2}. The four valid shapes are: 1×1 (small square), 2×1 (wide), 1×2 (tall), 2×2 (hero). Every widget type supports every shape.
+• Per row: two 1×1 share a row, OR one 2×1 takes a full row. A 2×2 spans two rows. Tall (1×2) widgets pair with another 1×2 in the same column or with two 1×1.
+• Position is a flat integer; reorder by passing the new position to widgets.move and the rest shift accordingly.
+
+SIZING GUIDANCE:
+• Hero metrics the user asks to "make bigger" / "feature" → 2×2.
+• Standalone simple counters (Streak, Today's events) → 1×1 default.
+• Lists and stories (Diary, Active quest, Next event) → 2×1 default, can grow to 2×2 if the user wants more preview.
+• Default to defaultSize unless the user specifies otherwise.
+
+After tools run, give a one-line confirmation. Be concise.`;
 
 export default function WidgetsScreen(_p: ScreenProps) {
   const qc = useQueryClient();
@@ -75,6 +89,7 @@ export default function WidgetsScreen(_p: ScreenProps) {
   const [hasReset, setHasReset] = React.useState(false);
   const [draggingId, setDraggingId] = React.useState<string | null>(null);
   const [draggingFromLibrary, setDraggingFromLibrary] = React.useState<WidgetType | null>(null);
+  const [selectedId, setSelectedId] = React.useState<string | null>(null);
   // Optimistic order — when user drags-to-reorder we apply locally first
   // so the DOM reflows without waiting for the round-trip to Supabase.
   const [optimistic, setOptimistic] = React.useState<Widget[] | null>(null);
@@ -118,12 +133,9 @@ export default function WidgetsScreen(_p: ScreenProps) {
     await remove.mutateAsync({ id });
   };
 
-  const onCycleSize = async (w: Widget) => {
-    const def = WIDGET_TYPES[w.widget_type as WidgetType];
-    if (!def || def.allowedSizes.length < 2) return;
-    const idx = def.allowedSizes.findIndex((s) => s.w === w.w && s.h === w.h);
-    const next = def.allowedSizes[(idx + 1) % def.allowedSizes.length];
-    await resize.mutateAsync({ id: w.id, w: next.w, h: next.h });
+  const onSetSize = async (w: Widget, size: WidgetSize) => {
+    if (size.w === w.w && size.h === w.h) return;
+    await resize.mutateAsync({ id: w.id, w: size.w, h: size.h });
   };
 
   const onDragStart = (e: DragStartEvent) => {
@@ -238,14 +250,19 @@ export default function WidgetsScreen(_p: ScreenProps) {
         )}
 
         <SortableContext items={ids} strategy={rectSortingStrategy}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+          <div
+            onClick={(e) => { if (e.target === e.currentTarget) setSelectedId(null); }}
+            style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}
+          >
             {visibleList.map((w) => (
               <SortableWidget
                 key={w.id}
                 widget={w}
                 onRemove={onRemove}
-                onCycleSize={onCycleSize}
+                onSetSize={onSetSize}
                 isBeingDragged={draggingId === w.id}
+                isSelected={selectedId === w.id}
+                onSelect={() => setSelectedId(selectedId === w.id ? null : w.id)}
               />
             ))}
           </div>
@@ -339,18 +356,24 @@ const AiPrompt: React.FC<{
 const SortableWidget: React.FC<{
   widget: Widget;
   onRemove: (id: string) => void;
-  onCycleSize: (w: Widget) => void;
+  onSetSize: (w: Widget, s: WidgetSize) => void;
   isBeingDragged: boolean;
-}> = ({ widget, onRemove, onCycleSize, isBeingDragged }) => {
+  isSelected: boolean;
+  onSelect: () => void;
+}> = ({ widget, onRemove, onSetSize, isBeingDragged, isSelected, onSelect }) => {
   const def = WIDGET_TYPES[widget.widget_type as WidgetType];
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
-  // Also accept drops from library on this slot.
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: widget.id });
 
   const setRefs = (node: HTMLDivElement | null) => {
     setNodeRef(node);
     setDropRef(node);
   };
+
+  // Track tile width so we can map an edge-drag delta into "are we
+  // crossing the half-tile threshold?" — once you drag past ~30% of
+  // the row's width or height the size flips.
+  const tileRef = React.useRef<HTMLDivElement | null>(null);
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -359,8 +382,12 @@ const SortableWidget: React.FC<{
     gridRow: `span ${widget.h}`,
     position: 'relative',
     opacity: isBeingDragged || isDragging ? 0.35 : 1,
-    outline: isOver ? '2px dashed oklch(0.78 0.16 var(--hue))' : undefined,
-    outlineOffset: isOver ? 4 : 0,
+    outline: isOver
+      ? '2px dashed oklch(0.78 0.16 var(--hue))'
+      : isSelected
+        ? `2px solid oklch(0.85 0.16 ${def?.hue ?? 220})`
+        : undefined,
+    outlineOffset: isOver || isSelected ? 4 : 0,
     borderRadius: 16,
     cursor: 'grab',
     touchAction: 'manipulation',
@@ -378,8 +405,60 @@ const SortableWidget: React.FC<{
   }
   const Render = def.Component;
 
+  // Edge-drag resize handler. Drag the right edge → toggles w; drag
+  // the bottom edge → toggles h. Snap threshold is the tile's own
+  // width/height — release past it commits the new size.
+  const startEdgeDrag = (axis: 'w' | 'h') => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    const tile = tileRef.current;
+    if (!tile) return;
+    const rect = tile.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
+    let nextW = widget.w as 1 | 2;
+    let nextH = widget.h as 1 | 2;
+
+    const onMove = (m: PointerEvent) => {
+      if (axis === 'w') {
+        const dx = m.clientX - startX;
+        // grow → 2, shrink → 1, threshold = half a tile width
+        const threshold = rect.width * 0.5;
+        if (widget.w === 1 && dx > threshold) nextW = 2;
+        else if (widget.w === 2 && dx < -threshold) nextW = 1;
+        else nextW = widget.w as 1 | 2;
+      } else {
+        const dy = m.clientY - startY;
+        const threshold = rect.height * 0.5;
+        if (widget.h === 1 && dy > threshold) nextH = 2;
+        else if (widget.h === 2 && dy < -threshold) nextH = 1;
+        else nextH = widget.h as 1 | 2;
+      }
+    };
+
+    const onUp = () => {
+      target.removeEventListener('pointermove', onMove);
+      target.removeEventListener('pointerup', onUp);
+      target.removeEventListener('pointercancel', onUp);
+      if (nextW !== widget.w || nextH !== widget.h) {
+        onSetSize(widget, { w: nextW, h: nextH });
+      }
+    };
+
+    target.addEventListener('pointermove', onMove);
+    target.addEventListener('pointerup', onUp);
+    target.addEventListener('pointercancel', onUp);
+  };
+
   return (
-    <div ref={setRefs} style={style} {...attributes} {...listeners}>
+    <div
+      ref={(n) => { setRefs(n); tileRef.current = n; }}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClick={(e) => { e.stopPropagation(); onSelect(); }}
+    >
       {/* Tap-through disabled while editing. */}
       <div style={{ pointerEvents: 'none' }}>
         <Render size={{ w: widget.w as 1 | 2, h: widget.h as 1 | 2 }} config={widget.config} />
@@ -399,21 +478,86 @@ const SortableWidget: React.FC<{
         <I.close size={10} stroke="var(--fg-1)" />
       </button>
 
-      {/* size cycle chip — tap to step through allowedSizes */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onCycleSize(widget); }}
-        onPointerDown={(e) => e.stopPropagation()}
-        aria-label="Resize"
-        style={{
-          position: 'absolute', bottom: 6, right: 6, padding: '3px 7px',
-          fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
-          background: 'oklch(0.20 0.02 260 / 0.85)',
-          border: '1px solid var(--hairline-strong)', borderRadius: 8,
-          color: 'var(--fg-1)', cursor: 'pointer', zIndex: 4,
-        }}
-      >
-        {widget.w}×{widget.h}
-      </button>
+      {/* Edge-drag resize handles — only when selected. Right edge
+          toggles width; bottom edge toggles height. Drag past half
+          the tile's dimension to commit. */}
+      {isSelected && (
+        <>
+          <div
+            onPointerDown={startEdgeDrag('w')}
+            aria-label="Drag right edge to resize width"
+            style={{
+              position: 'absolute', top: 8, bottom: 8, right: -3, width: 6,
+              borderRadius: 3,
+              background: `oklch(0.85 0.16 ${def.hue})`,
+              cursor: 'ew-resize', zIndex: 5, touchAction: 'none',
+              boxShadow: '0 0 8px oklch(0 0 0 / 0.4)',
+            }}
+          />
+          <div
+            onPointerDown={startEdgeDrag('h')}
+            aria-label="Drag bottom edge to resize height"
+            style={{
+              position: 'absolute', left: 8, right: 8, bottom: -3, height: 6,
+              borderRadius: 3,
+              background: `oklch(0.85 0.16 ${def.hue})`,
+              cursor: 'ns-resize', zIndex: 5, touchAction: 'none',
+              boxShadow: '0 0 8px oklch(0 0 0 / 0.4)',
+            }}
+          />
+        </>
+      )}
+
+      {/* Size selector — 4 buttons appear when selected. Tap any to
+          jump straight to that shape. */}
+      {isSelected && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+          style={{
+            position: 'absolute', bottom: 8, left: 8, display: 'flex', gap: 4, zIndex: 4,
+          }}
+        >
+          {([
+            { w: 1, h: 1, label: '1×1' },
+            { w: 2, h: 1, label: '2×1' },
+            { w: 1, h: 2, label: '1×2' },
+            { w: 2, h: 2, label: '2×2' },
+          ] as const).map((s) => {
+            const active = s.w === widget.w && s.h === widget.h;
+            return (
+              <button
+                key={s.label}
+                onClick={() => onSetSize(widget, { w: s.w, h: s.h })}
+                style={{
+                  padding: '3px 6px', borderRadius: 6,
+                  fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 0.5, fontWeight: 600,
+                  background: active ? `oklch(0.85 0.16 ${def.hue})` : 'oklch(0.20 0.02 260 / 0.85)',
+                  color: active ? '#06060a' : 'var(--fg-1)',
+                  border: '1px solid var(--hairline-strong)', cursor: 'pointer',
+                }}
+              >
+                {s.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Tiny size badge in the corner when not selected (always visible) */}
+      {!isSelected && (
+        <div
+          style={{
+            position: 'absolute', bottom: 6, right: 6, padding: '2px 6px',
+            fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
+            background: 'oklch(0.20 0.02 260 / 0.7)',
+            border: '1px solid var(--hairline)', borderRadius: 6,
+            color: 'var(--fg-3)', pointerEvents: 'none', zIndex: 3,
+          }}
+        >
+          {widget.w}×{widget.h}
+        </div>
+      )}
     </div>
   );
 };
