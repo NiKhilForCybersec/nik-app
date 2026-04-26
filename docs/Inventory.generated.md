@@ -25,7 +25,7 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 | _Single source of truth for everything the AI/app/backend can do_ | |
 | [web/src/contracts/hydration.ts](../web/src/contracts/hydration.ts) | `HydrationIntake`, `HydrationToday`, `hydration` |
 | _Append-only intake ledger. Daily totals computed on read. The default_ | |
-| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `calendar`, `canCircleView`, `chat`, `circle`, `commands`, `cycle`, `diary`, `events`, `familyOps`, `habits`, `hydration`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
+| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `WidgetType`, `calendar`, `canCircleView`, `chat`, `circle`, `commands`, `cycle`, `diary`, `events`, `familyOps`, `habits`, `hydration`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui`, `widgets` |
 | _Re-exports every operation and UI command. Imports here are the_ | |
 | [web/src/contracts/intents.ts](../web/src/contracts/intents.ts) | `Intent`, `IntentKind`, `Memory`, `MemoryKind`, `intents`, `memory` |
 | _Operations the AI uses to remember things and schedule callbacks._ | |
@@ -40,6 +40,8 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 | [web/src/contracts/sleep.ts](../web/src/contracts/sleep.ts) | `Dream`, `SleepNight`, `SleepSource`, `sleep` |
 | [web/src/contracts/ui-commands.ts](../web/src/contracts/ui-commands.ts) | `ScreenIdEnum`, `ThemeId`, `ui` |
 | _Each command takes (state, setState) and an input. The AI invokes_ | |
+| [web/src/contracts/widgets.ts](../web/src/contracts/widgets.ts) | `Widget`, `WidgetType`, `widgets` |
+| _The Home screen is a customisable bento. Each widget instance lives_ | |
 
 ## Library (hooks + helpers)
 
@@ -56,9 +58,9 @@ _React hooks, helpers, the LLM router, the Supabase client._
 | [web/src/lib/llm/index.ts](../web/src/lib/llm/index.ts) | `AnthropicProvider`, `LLMRouter`, `OpenAIProvider`, `llm` |
 | [web/src/lib/llm/openai.ts](../web/src/lib/llm/openai.ts) | `OpenAIProvider` |
 | _OpenAI provider — calls GPT via the Chat Completions API._ | |
-| [web/src/lib/llm/router.ts](../web/src/lib/llm/router.ts) | `LLMCallRecord`, `LLMRouter`, `llm` |
+| [web/src/lib/llm/router.ts](../web/src/lib/llm/router.ts) | `LLMRouter`, `llm` |
 | _Picks a provider per request based on:_ | |
-| [web/src/lib/llm/tools.ts](../web/src/lib/llm/tools.ts) | `ExecuteCtx`, `ExecuteResult`, `OpCallRecord`, `buildToolCatalog`, `executeToolCall`, `getCmdRegistry`, `getOpRegistry`, `onOpCalls`, `recentOpCalls` |
+| [web/src/lib/llm/tools.ts](../web/src/lib/llm/tools.ts) | `ExecuteCtx`, `ExecuteResult`, `buildToolCatalog`, `executeToolCall`, `getCmdRegistry`, `getOpRegistry` |
 | _Bridges the Operations + Commands registry into the LLM tool-use loop._ | |
 | [web/src/lib/llm/types.ts](../web/src/lib/llm/types.ts) | `LLMComplexity`, `LLMMessage`, `LLMProvider`, `LLMRequest`, `LLMResponse`, `LLMRole`, `LLMTool`, `LLMToolCall` |
 | _The shared shape every model-backed provider implements: cloud_ | |
@@ -132,10 +134,6 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/CycleScreen.manifest.ts](../web/src/screens/CycleScreen.manifest.ts) | `manifest` |
 | [web/src/screens/CycleScreen.tsx](../web/src/screens/CycleScreen.tsx) | `*default*`, `CycleScreen` |
 | _Hero card shows current phase + cycle day + days-until-next._ | |
-| [web/src/screens/DevScreen.manifest.ts](../web/src/screens/DevScreen.manifest.ts) | `manifest` |
-| _Dev console — gated on import.meta.env.DEV. Doesn't read any single_ | |
-| [web/src/screens/DevScreen.tsx](../web/src/screens/DevScreen.tsx) | `*default*`, `DevScreen` |
-| _DEV-ONLY safety net. Visible only when `import.meta.env.DEV` is true,_ | |
 | [web/src/screens/DiaryScreen.manifest.ts](../web/src/screens/DiaryScreen.manifest.ts) | `manifest` |
 | [web/src/screens/DiaryScreen.tsx](../web/src/screens/DiaryScreen.tsx) | `*default*`, `DiaryScreen` |
 | _Daily diary with thoughts, photos, videos, voice, mood, AI prompts,_ | |
@@ -246,7 +244,7 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/WardrobeScreen.manifest.ts](../web/src/screens/WardrobeScreen.manifest.ts) | `manifest` |
 | [web/src/screens/WardrobeScreen.tsx](../web/src/screens/WardrobeScreen.tsx) | `*default*`, `WardrobeScreen` |
 | [web/src/screens/WidgetsScreen.manifest.ts](../web/src/screens/WidgetsScreen.manifest.ts) | `manifest` |
-| _TODO: populate as the screen wires to the registry._ | |
+| _WidgetsScreen body is still placeholder — full playground rebuild_ | |
 | [web/src/screens/WidgetsScreen.tsx](../web/src/screens/WidgetsScreen.tsx) | `*default*`, `WidgetsScreen` |
 | [web/src/screens/manifests.ts](../web/src/screens/manifests.ts) | `REACHABLE_COMMANDS`, `REACHABLE_OPS`, `SCREEN_MANIFESTS` |
 | _Aggregate screen manifests — auto-imports every <Name>Screen.manifest.ts_ | |
@@ -282,6 +280,6 @@ _Shared type-only modules._
 
 ---
 
-**Stats**: 163 files, 396 exports.
+**Stats**: 162 files, 394 exports.
 
-**Last regenerated**: 2026-04-26T07:03:01.174Z.
+**Last regenerated**: 2026-04-26T08:34:32.844Z.

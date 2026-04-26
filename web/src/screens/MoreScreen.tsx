@@ -34,10 +34,10 @@ const CATEGORIES: Category[] = [
     title: 'Pinned',
     subtitle: 'Your daily companions',
     items: [
-      { id: 'brief',  icon: 'sparkle',  label: 'Daily Brief',  sub: '~4 min · audio · today',           hue: 220, tag: 'NEW', pinned: true },
-      { id: 'diary',  icon: 'book',     label: 'Diary',        sub: '184 entries · last 2h ago',         hue: 280, tag: 'NEW', pinned: true },
-      { id: 'focus',  icon: 'target',   label: 'Focus Mode',   sub: '50 min · deep · forest',            hue: 150, tag: 'NEW', pinned: true },
-      { id: 'score',  icon: 'sparkle',  label: 'Nik Score',    sub: '742 · +28 this week',               hue: 200, tag: 'NEW', pinned: true },
+      { id: 'brief',  icon: 'sparkle',  label: 'Daily Brief',  sub: 'Audio · curated · today',           hue: 220, tag: 'NEW', pinned: true },
+      { id: 'diary',  icon: 'book',     label: 'Diary',        sub: 'Entries · mood · search',           hue: 280, tag: 'NEW', pinned: true },
+      { id: 'focus',  icon: 'target',   label: 'Focus Mode',   sub: 'Sessions · sounds · timer',         hue: 150, tag: 'NEW', pinned: true },
+      { id: 'score',  icon: 'sparkle',  label: 'Nik Score',    sub: 'Pillars · trend · backlog',         hue: 200, tag: 'NEW', pinned: true },
     ],
   },
   {
@@ -73,7 +73,7 @@ const CATEGORIES: Category[] = [
     title: 'People',
     subtitle: 'The circle around you',
     items: [
-      { id: 'circle',       icon: 'family',    label: 'Family Circle',  sub: '5 members · 3 online',        hue: 150 },
+      { id: 'circle',       icon: 'family',    label: 'Family Circle',  sub: 'Members · sharing · presence', hue: 150 },
       { id: 'familyops',    icon: 'users',     label: 'Family Ops',     sub: 'Tasks · alarms · routines',   hue: 220 },
       { id: 'couple',       icon: 'heart',     label: 'Couple',         sub: 'Notes · gratitude · dates',   hue: 320 },
       { id: 'kids',         icon: 'family',    label: 'Kids View',      sub: 'Routines · stars · rewards',  hue: 30 },

@@ -16,6 +16,27 @@ This file is auto-loaded into context at session start via the wiki + linked fro
 
 ## Open
 
+### 2026-04-26 · WidgetsScreen needs full rebuild as AI-powered playground
+Currently it's template content (placeholder copy, no real widget management). Required:
+- `home_widgets` table + `widgets` contract (list/install/move/resize/configure/remove)
+- WIDGET_TYPES registry — one component per type with configSchema (Zod)
+- WidgetsScreen as a real **playground**: shows current Home widgets, library to pick from, drag-and-drop reordering, per-widget config form (auto-generated from schema)
+- AI prompt input in WidgetsScreen — user types "add a recent intakes widget below hydration" → Chat-style LLM call → `widgets.install` → widget appears
+- HomeScreen reads `widgets.list` and renders dynamically (replaces current static bento)
+- Same widget render whether placed via UI or via AI Chat
+- Granular per-widget config (size 1×1 / 2×1 / 1×2 / 2×2; show/hide elements; goal overrides)
+- Widget contract exposed as `widgets.install` to the AI tool catalog so Chat works too
+**Plan:** see `~/.claude/.../memory/project_widget_system_plan.md`. **Estimate:** full session, ~3-4 hours.
+
+### 2026-04-26 · Family search across other users (multi-tenant invite)
+Current `circle.add` only inserts rows in YOUR circle_members table — the "other person" doesn't know they're in your circle, doesn't share their data back. For real cross-account family:
+- `circle_invites` table: { token, owner_user_id, expires_at, max_uses, accepted_by? }
+- `circle.createInvite` → returns { token, qrPayload, code }
+- `circle.acceptInvite({ token })` → links the two users bidirectionally
+- UI: "Invite by code" + QR code display + "Enter code" input + (later) NFC tap-to-share
+- Privacy: each side controls what categories they share with the other; default minimal, opt-in to expand
+**Plan:** see [Backlog.md](Backlog.md#family-add-to-circle-tap-to-share-nfc--qr--code) — already exists with full architecture. **Estimate:** real session of work, ~3-5 hours.
+
 ### 2026-04-26 · MoreScreen tile sub-text is hardcoded
 Examples: "Diary · 184 entries · last 2h ago", "Focus Mode · 50 min · deep · forest", "Nik Score · 742 · +28 this week", "Daily Brief · ~4 min · audio · today". All in `web/src/screens/MoreScreen.tsx` `CATEGORIES` config. **Fix:** either (a) replace with stable descriptive text ("audio · curated", "tracker", etc.) or (b) wire each tile to its corresponding op (diary.list count, score.get total, etc.) — option (b) is N more useOp calls on a single screen which is heavy; (a) is the pragmatic fix.
 
