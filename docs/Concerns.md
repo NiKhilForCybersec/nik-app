@@ -16,17 +16,20 @@ This file is auto-loaded into context at session start via the wiki + linked fro
 
 ## Open
 
-### 2026-04-26 · WidgetsScreen needs full rebuild as AI-powered playground
-Currently it's template content (placeholder copy, no real widget management). Required:
-- `home_widgets` table + `widgets` contract (list/install/move/resize/configure/remove)
-- WIDGET_TYPES registry — one component per type with configSchema (Zod)
-- WidgetsScreen as a real **playground**: shows current Home widgets, library to pick from, drag-and-drop reordering, per-widget config form (auto-generated from schema)
-- AI prompt input in WidgetsScreen — user types "add a recent intakes widget below hydration" → Chat-style LLM call → `widgets.install` → widget appears
-- HomeScreen reads `widgets.list` and renders dynamically (replaces current static bento)
-- Same widget render whether placed via UI or via AI Chat
-- Granular per-widget config (size 1×1 / 2×1 / 1×2 / 2×2; show/hide elements; goal overrides)
-- Widget contract exposed as `widgets.install` to the AI tool catalog so Chat works too
-**Plan:** see `~/.claude/.../memory/project_widget_system_plan.md`. **Estimate:** full session, ~3-4 hours.
+### 2026-04-26 · Hardcoded demo data still leaking — Arjun, level 27, streak 42, family 6 members
+Earlier seed-lie sweep stripped profile defaults to honest 0 but on refresh widgets still show: Streak 42, Family 6 members · 3 online, Active quest "Deep focus — 2 hrs no phone", Diary "Long morning, finally", Next event "A friend's birthday in 6 weeks". Source must be re-seed-on-load or something in seed-clean / dev-fixtures. **Find and strip.** Real users land on honest 0/empty state.
+
+### 2026-04-26 · Widget playground graphics + interactions are too limited
+"Widget options are very much limited, graphics looks not good, limited options are displayed and are not functional. User should be able to select and then resize it by dragging to any shape, and also tap-hold and move it to any place — but with defined rules: only 2 1×1 in a row (can merge to 2×2), if 2×1 then only 1 in a row, etc. Think about all possibilities."
+- Drag-corner resize within `allowedSizes`
+- Tap-hold + drag to reposition anywhere on the canvas
+- Grid rules enforced: 2 1×1 / row OR 1 2×1 / row OR 1 2×2 spanning 2 rows
+- Richer per-widget graphics (the small previews look stripped)
+- Add more widget types where useful (habits-rituals widget, weather, focus session, recent diary list, etc.)
+- "All the options in the library and perfect; user can either drag-drop a library item into the play area, OR tap it and it gets rendered at the end then user drags-drops anywhere they want."
+
+### 2026-04-26 · Today's Rituals (habits) section on Home should be a widget too
+"In today's ritual is also in the dashboard right even that should be widgets customizable right, it should be there in the widgets play screen everything and button all the options and full liberty to do in playscreen also". Convert habits-rituals + every other static Home block into widget types. Home becomes 100% widget-driven; nothing static. Playground has total control.
 
 ### 2026-04-26 · Family search across other users (multi-tenant invite)
 Current `circle.add` only inserts rows in YOUR circle_members table — the "other person" doesn't know they're in your circle, doesn't share their data back. For real cross-account family:
@@ -49,14 +52,8 @@ Already labelled "DEMO PREVIEW" but the values themselves are still hardcoded si
 ### 2026-04-26 · Family circle: no UI to add / remove members
 The `circle.add` and `circle.remove` ops exist, AI can call them via Chat — but the CircleScreen has no `+` button or X-on-member affordance. **Fix:** add minimal UI for both. (User-search across other users' accounts is a separate multi-tenant feature requiring an invite flow — defer.)
 
-### 2026-04-26 · NEED: AI-powered widget playground
-Widgets system + dedicated playground page where Nik AI creates widgets on the fly via real LLM call. Two flows for picking: AI suggests + creates OR user manually picks from a library. Must be live, granular, controllable. **This is the project_widget_system_plan.md item — full session of work, saved to memory.**
-
 ### 2026-04-26 · Other habit tiles (Read, Sleep, Walk, Train, Meditate, Stretch) showing seeded values, not real activity
 Same class of bug as the Hydrate one. Habits' `done` values were seeded at signup (Read 22/30, Sleep 7/7, Walk 5240/8000, Train 60/60, Meditate 0/10) so they LOOK live but are static demo numbers. **Fix:** start every habit at done=0 in seed (honest empty state). Where we have a real source (Sleep ← sleep_nights last night), derive on read like Hydrate does.
-
-### 2026-04-26 · Settings → Widgets: not working, doesn't render dashboard values
-WidgetsScreen exists but is template content. User expects: pick widgets in Settings, they live-resize and render the actual dashboard data. Tied to the project_widget_system_plan.md memory. **Fix is the widget system v1 build (from that plan) — not a small fix, real session of work.**
 
 ### 2026-04-26 · Source-of-truth mismatch: Home Hydrate (8/8) ≠ Hydration screen (4/8)
 Home shows habit.done=8 (capped after auto-bumps), Hydration screen shows 4/8 (count of actual hydration_intakes rows today). Two screens, different denominators, both claiming to be the same metric. **Fix:** make the Hydrate widget on Home derive from hydration.today (single source of truth) so the ring drains correctly when intakes are removed/added.
@@ -94,9 +91,6 @@ Clicking the Hydrate tile on Home navigates to `/habits` (the generic Habits scr
 ### 2026-04-26 · Home widget ↔ dedicated screen data mismatch
 The Hydrate tile on Home shows "8/8 glasses" (from habits table) while the Hydration screen shows ml total + intake history. They should be the same source-of-truth. **Why:** keeps the user's mental model consistent — "what I see on Home is what I see on the screen."
 
-### 2026-04-26 · Generic widget richness
-Each Home widget tile should be rich, granular, controllable. User should be able to add/remove/configure widgets via UI AND chat — same render either way. Captured in detail in `~/.claude/.../memory/project_widget_system_plan.md`. **Why:** Home is the daily anchor; needs to feel custom not template.
-
 ### 2026-04-26 · Autonomous agent (24/7 loop)
 Nik should be a real agent: scheduler, monitoring, knowledge-fresh, "I don't know" honesty, knows boundaries (level/xp/streak are derived not user-set). Layer 1 (mutability tags) ✅ shipped. Layers 2 (scheduler) + 3 (knowledge bundle) pending. Captured in detail in `~/.claude/.../memory/project_autonomous_agent_plan.md`. **Why:** the difference between a chat assistant and an agent.
 
@@ -112,6 +106,9 @@ Email/password only for v1. AuthScreen has SOON-badged Google/Apple/SAML. Saved 
 ---
 
 ## Resolved
+
+### 2026-04-26 · Widget system v1 — full playground + AI install + dynamic Home (4 concerns folded in)
+Widgets contract + 12-component registry + `home_widgets` migration shipped. HomeScreen renders widgets dynamically from DB; auto-seeds defaults on first visit. WidgetsScreen rebuilt as a true mirror of Home — same bento, edit overlays per tile (✕ remove, ← → reorder, tap-resize chips), inline `+ ADD WIDGET` opens library, AI prompt at top routes through the LLM tool catalog. Mutations write through; Home auto-refreshes. Resolves: "WidgetsScreen needs full rebuild", "NEED: AI-powered widget playground", "Settings → Widgets not working", "Generic widget richness". Fixes: [195886c](https://github.com/NiKhilForCybersec/nik-app/commit/195886c) (data layer), [dd3cb70](https://github.com/NiKhilForCybersec/nik-app/commit/dd3cb70) (Phase 1 Home canvas), [a854861](https://github.com/NiKhilForCybersec/nik-app/commit/a854861) (Phase 2 playground).
 
 ### 2026-04-26 · MockLLM in chat → real Anthropic Claude
 Was using regex-pattern fallback. Now talks to real api.anthropic.com with OpenAI fallback. Fix: [48bb051](https://github.com/NiKhilForCybersec/nik-app/commit/48bb051).

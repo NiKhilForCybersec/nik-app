@@ -23,15 +23,15 @@ const seededUsers = new Set<string>();
 function seedOnce(userId: string, displayName?: string) {
   if (seededUsers.has(userId)) return;
   seededUsers.add(userId);
+  // Honest empty: only structural seeds (habit *definitions*, self
+  // circle row, score snapshot at zero). Every visible metric must
+  // come from real activity — no demo quests, diary, events, family
+  // members, sleep nights, or family ops. They were lying about
+  // user state and the playground exposed it on first run.
   void seedSampleProfileIfEmpty(userId, displayName);
   void seedSampleHabitsIfEmpty(userId);
-  void seedSampleEventsIfEmpty(userId);
-  void seedSampleDiaryIfEmpty(userId);
-  void seedSampleScoreIfEmpty(userId);
-  void seedSampleSleepIfEmpty(userId);
-  void seedSampleFamilyOpsIfEmpty(userId);
-  void seedSampleQuestsIfEmpty(userId);
-  void seedSampleCircleIfEmpty(userId, displayName);
+  void seedSelfCircleRowIfEmpty(userId, displayName);
+  void seedScoreSnapshotIfEmpty(userId);
 }
 
 export function useAuth() {
@@ -121,6 +121,46 @@ async function seedSampleHabitsIfEmpty(userId: string) {
   ];
   const { error } = await supabase.from('habits').insert(seed.map(h => ({ ...h, user_id: userId })));
   if (error) console.warn('[seed] habits insert failed', error);
+}
+
+async function seedSelfCircleRowIfEmpty(userId: string, displayName?: string) {
+  const { count } = await supabase
+    .from('circle_members')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((count ?? 0) > 0) return;
+  // ONLY the user themselves. Demo family members (Partner, Kids,
+  // Parent) used to be seeded here — that lied about the user's real
+  // family circle. Real members arrive via circle.acceptInvite (Step
+  // 2 in NextSteps.md).
+  const { error } = await supabase.from('circle_members').insert({
+    user_id: userId,
+    member_id: 'self',
+    name: displayName || 'You',
+    role: 'You',
+    relation: 'self',
+    age: null,
+    hue: 220,
+    is_self: true,
+    status: 'online',
+    share_tier: 'inner',
+    custom_cats: [],
+    birthday: null,
+    blood_type: null,
+    location: null,
+    last_seen_at: null,
+    profile: {},
+    care_recipient: false,
+  });
+  if (error) console.warn('[seed] self circle_member insert failed', error);
+}
+
+async function seedScoreSnapshotIfEmpty(userId: string) {
+  const { count } = await supabase
+    .from('user_scores')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((count ?? 0) === 0) await seedScoreSnapshot(userId);
 }
 
 async function seedSampleEventsIfEmpty(userId: string) {
