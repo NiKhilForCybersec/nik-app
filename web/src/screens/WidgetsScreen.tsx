@@ -568,13 +568,20 @@ const SortableWidget: React.FC<{
     }
   }, [widget.w, widget.h, optimisticSize]);
 
+  // When the tile is actively being dragged we don't apply dnd-kit's
+  // transform here — the floating DragOverlay carries the cursor-
+  // following ghost. Applying it here too caused two overlapping
+  // copies + janky double-render. Original keeps its grid slot but
+  // becomes a faint placeholder so other tiles can shift into the
+  // hole cleanly.
+  const dragging = isBeingDragged || isDragging;
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: dragging ? undefined : CSS.Transform.toString(transform),
+    transition: dragging ? undefined : transition,
     gridColumn: `span ${w}`,
     gridRow: `span ${h}`,
     position: 'relative',
-    opacity: isBeingDragged || isDragging ? 0.35 : 1,
+    opacity: dragging ? 0.18 : 1,
     outline: isOver
       ? '2px dashed oklch(0.78 0.16 var(--hue))'
       : isSelected
@@ -584,10 +591,11 @@ const SortableWidget: React.FC<{
     borderRadius: 16,
     cursor: 'pointer',
     touchAction: 'manipulation',
-    // Stop the browser from selecting widget text when the user
-    // tap-holds anywhere on the tile.
     userSelect: 'none',
     WebkitUserSelect: 'none',
+    // Pin the visual size while dragging so the tile doesn't
+    // flicker as neighbours rearrange around it.
+    willChange: dragging ? 'opacity' : undefined,
   };
 
   if (!def) {
@@ -797,16 +805,26 @@ const DragGhost: React.FC<{ widget: Widget }> = ({ widget }) => {
   const def = WIDGET_TYPES[widget.widget_type as WidgetType];
   if (!def) return null;
   const Render = def.Component;
+  // Ghost matches the tile's real dimensions roughly so the user
+  // sees the widget at its actual scale while dragging — no
+  // surprising zoom-in. 110px cell + 8px gap matches gridAutoRows
+  // in the canvas. A tiny rotate + lift gives "I picked this up"
+  // affordance without distorting size.
+  const cell = 110;
+  const gap = 8;
+  const w = widget.w as WidgetUnit;
+  const h = widget.h as WidgetUnit;
   return (
     <div style={{
-      width: widget.w === 2 ? 280 : 140, height: 110,
-      transform: 'rotate(-3deg)',
-      boxShadow: '0 16px 50px -10px oklch(0 0 0 / 0.6)',
+      width: w * cell + (w - 1) * gap,
+      height: h * cell + (h - 1) * gap,
+      transform: 'rotate(-2deg)',
+      boxShadow: `0 24px 60px -12px oklch(0 0 0 / 0.8), 0 0 0 1px oklch(0.85 0.16 ${def.hue} / 0.4)`,
+      borderRadius: 18,
       pointerEvents: 'none',
+      overflow: 'hidden',
     }}>
-      <div style={{ display: 'grid', gridTemplateColumns: widget.w === 2 ? '1fr' : '1fr', gap: 0 }}>
-        <Render size={{ w: widget.w as WidgetUnit, h: widget.h as WidgetUnit }} config={widget.config} />
-      </div>
+      <Render size={{ w, h }} config={widget.config} />
     </div>
   );
 };
