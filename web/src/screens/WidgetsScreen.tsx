@@ -1,14 +1,47 @@
 /* Nik — Widgets playground.
  *
- * Mirror of the Home canvas, but in edit mode. Each widget renders
- * exactly as it does on Home; tap controls overlay each tile to
- * reorder (←/→), resize (chips), remove (✕). Library and AI prompt
- * sit below. Mutations write straight through — Home auto-refreshes
- * via React Query invalidation.
+ * The user's Home canvas, in edit mode. Same widget components as
+ * Home so what you arrange here is what you see there.
+ *
+ * Interactions (touch + mouse):
+ *   • TAP-HOLD + DRAG a tile to reorder anywhere in the canvas (250ms
+ *     activation so a gentle tap doesn't accidentally start dragging).
+ *   • TAP the size chip to cycle through allowed sizes for that widget.
+ *   • TAP ✕ to remove. TAP a library item to append it to the end.
+ *   • DRAG a library item into the canvas to drop it at a specific slot.
+ *   • TAP the AI prompt + GO to install/move/resize/remove via natural
+ *     language (uses the LLM tool catalog).
+ *
+ * Grid rules:
+ *   The render is a 2-col CSS grid. A widget's `w` (1 or 2) → column
+ *   span; `h` (1 or 2) → row span. CSS grid auto-flow handles packing
+ *   so 1×1 + 1×1 share a row, 2×1 takes its own row, 2×2 takes a
+ *   2-row block. Position is a flat integer — reorder mutates it.
  */
 
 import React from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  useDraggable,
+  useDroppable,
+  type DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  rectSortingStrategy,
+  useSortable,
+  sortableKeyboardCoordinates,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { ScreenProps } from '../App';
 import { I } from '../components/icons';
 import { Chip } from '../components/primitives';
@@ -39,11 +72,15 @@ export default function WidgetsScreen(_p: ScreenProps) {
   const [aiInput, setAiInput] = React.useState('');
   const [aiBusy, setAiBusy] = React.useState(false);
   const [aiNote, setAiNote] = React.useState<string | null>(null);
-  const [showLibrary, setShowLibrary] = React.useState(false);
   const [hasReset, setHasReset] = React.useState(false);
+  const [draggingId, setDraggingId] = React.useState<string | null>(null);
+  const [draggingFromLibrary, setDraggingFromLibrary] = React.useState<WidgetType | null>(null);
+  // Optimistic order — when user drags-to-reorder we apply locally first
+  // so the DOM reflows without waiting for the round-trip to Supabase.
+  const [optimistic, setOptimistic] = React.useState<Widget[] | null>(null);
+  const visibleList = optimistic ?? list;
 
-  // Auto-seed defaults so the playground is never blank for new users —
-  // mirrors HomeScreen's behaviour.
+  // Auto-seed default canvas on first visit.
   React.useEffect(() => {
     if (userId && isFetched && list.length === 0 && !hasReset) {
       setHasReset(true);
@@ -51,17 +88,29 @@ export default function WidgetsScreen(_p: ScreenProps) {
     }
   }, [userId, isFetched, list.length, hasReset, reset]);
 
-  const installedTypes = new Set(list.map((w) => w.widget_type as WidgetType));
-  const libraryTypes = ALL_TYPES.filter((t) => !installedTypes.has(t) || t === 'list_preview');
+  // Drop optimistic state once the server catches up.
+  React.useEffect(() => {
+    if (optimistic && list.length === optimistic.length) {
+      const sameOrder = list.every((w, i) => w.id === optimistic[i].id);
+      if (sameOrder) setOptimistic(null);
+    }
+  }, [list, optimistic]);
 
-  const onAdd = async (type: WidgetType) => {
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { delay: 200, tolerance: 6 },
+    }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const onAdd = async (type: WidgetType, position?: number) => {
     const def = WIDGET_TYPES[type];
     await install.mutateAsync({
       widgetType: type,
+      position,
       w: def.defaultSize.w,
       h: def.defaultSize.h,
     });
-    setShowLibrary(false);
   };
 
   const onRemove = async (id: string) => {
@@ -69,16 +118,49 @@ export default function WidgetsScreen(_p: ScreenProps) {
     await remove.mutateAsync({ id });
   };
 
-  const onResize = async (id: string, size: WidgetSize) => {
-    await resize.mutateAsync({ id, w: size.w, h: size.h });
+  const onCycleSize = async (w: Widget) => {
+    const def = WIDGET_TYPES[w.widget_type as WidgetType];
+    if (!def || def.allowedSizes.length < 2) return;
+    const idx = def.allowedSizes.findIndex((s) => s.w === w.w && s.h === w.h);
+    const next = def.allowedSizes[(idx + 1) % def.allowedSizes.length];
+    await resize.mutateAsync({ id: w.id, w: next.w, h: next.h });
   };
 
-  const onMove = async (id: string, dir: -1 | 1) => {
-    const idx = list.findIndex((w) => w.id === id);
-    const target = idx + dir;
-    if (target < 0 || target >= list.length) return;
-    const newPos = list[target].position;
-    await move.mutateAsync({ id, position: newPos });
+  const onDragStart = (e: DragStartEvent) => {
+    const id = String(e.active.id);
+    if (id.startsWith('lib:')) {
+      setDraggingFromLibrary(id.slice(4) as WidgetType);
+    } else {
+      setDraggingId(id);
+    }
+  };
+
+  const onDragEnd = async (e: DragEndEvent) => {
+    const activeId = String(e.active.id);
+    const overId = e.over ? String(e.over.id) : null;
+    setDraggingId(null);
+    setDraggingFromLibrary(null);
+
+    if (!overId) return;
+
+    // Library → canvas: install at target slot's position.
+    if (activeId.startsWith('lib:')) {
+      const type = activeId.slice(4) as WidgetType;
+      const overWidget = list.find((w) => w.id === overId);
+      const insertAt = overWidget ? overWidget.position : list.length;
+      await onAdd(type, insertAt);
+      return;
+    }
+
+    // Sortable reorder within canvas.
+    if (activeId === overId) return;
+    const oldIndex = list.findIndex((w) => w.id === activeId);
+    const newIndex = list.findIndex((w) => w.id === overId);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(list, oldIndex, newIndex);
+    setOptimistic(reordered);
+    const newPos = list[newIndex].position;
+    await move.mutateAsync({ id: activeId, position: newPos });
   };
 
   const onReset = async () => {
@@ -130,129 +212,62 @@ export default function WidgetsScreen(_p: ScreenProps) {
     }
   };
 
+  const ids = visibleList.map((w) => w.id);
+
   return (
     <div style={{ padding: '8px 16px 80px' }}>
-      {/* Header */}
-      <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>EDIT MODE · TAP TO REARRANGE</div>
-          <div className="display" style={{ fontSize: 24, fontWeight: 500, lineHeight: 1.1, marginTop: 4 }}>Your canvas</div>
-        </div>
-        <Chip tone="accent" size="sm">● EDITING</Chip>
-      </div>
+      <Header count={visibleList.length} />
 
-      {/* AI prompt */}
-      <form onSubmit={onAiSubmit} className="glass" style={{ padding: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, borderColor: 'oklch(0.78 0.16 var(--hue) / 0.25)' }}>
-        <I.sparkle size={14} stroke="oklch(0.92 0.14 var(--hue))" />
-        <input
-          value={aiInput}
-          onChange={(e) => setAiInput(e.target.value)}
-          placeholder="Ask Nik — &ldquo;add a hydration widget&rdquo;"
-          disabled={aiBusy}
-          style={{
-            flex: 1, background: 'transparent', border: 'none', outline: 'none',
-            color: 'var(--fg-1)', fontSize: 13, fontFamily: 'var(--font-body)',
-          }}
+      <AiPrompt
+        value={aiInput}
+        onChange={setAiInput}
+        onSubmit={onAiSubmit}
+        busy={aiBusy}
+        note={aiNote}
+      />
+
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+        {/* CANVAS */}
+        {isLoading && <div style={{ fontSize: 12, color: 'var(--fg-3)', padding: 16 }}>Loading…</div>}
+
+        {!isLoading && visibleList.length === 0 && (
+          <div className="glass" style={{ padding: 20, textAlign: 'center', marginBottom: 14 }}>
+            <div style={{ fontSize: 12, color: 'var(--fg-2)', marginBottom: 8 }}>No widgets on your Home yet.</div>
+            <button onClick={onReset} className="tap" style={primaryBtn}>Install starter set</button>
+          </div>
+        )}
+
+        <SortableContext items={ids} strategy={rectSortingStrategy}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+            {visibleList.map((w) => (
+              <SortableWidget
+                key={w.id}
+                widget={w}
+                onRemove={onRemove}
+                onCycleSize={onCycleSize}
+                isBeingDragged={draggingId === w.id}
+              />
+            ))}
+          </div>
+        </SortableContext>
+
+        {/* LIBRARY */}
+        <Library
+          installedTypes={new Set(visibleList.map((w) => w.widget_type as WidgetType))}
+          onTap={(t) => onAdd(t)}
+          installPending={install.isPending}
         />
-        <button
-          type="submit"
-          disabled={aiBusy || !aiInput.trim()}
-          className="tap"
-          style={{
-            padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-            background: aiInput.trim() && !aiBusy
-              ? 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))'
-              : 'oklch(1 0 0 / 0.05)',
-            color: aiInput.trim() && !aiBusy ? '#06060a' : 'var(--fg-3)',
-            border: 'none', cursor: aiBusy ? 'wait' : 'pointer',
-          }}
-        >
-          {aiBusy ? '…' : 'GO'}
-        </button>
-      </form>
-      {aiNote && (
-        <div style={{ marginTop: -8, marginBottom: 14, fontSize: 11, color: 'var(--fg-3)', padding: '4px 10px' }}>
-          {aiNote}
-        </div>
-      )}
 
-      {/* Live canvas — same grid as Home, with edit overlays */}
-      {isLoading && <div style={{ fontSize: 12, color: 'var(--fg-3)', padding: 16 }}>Loading…</div>}
+        <DragOverlay dropAnimation={null}>
+          {draggingId ? (
+            <DragGhost widget={visibleList.find((w) => w.id === draggingId)!} />
+          ) : draggingFromLibrary ? (
+            <LibraryGhost type={draggingFromLibrary} />
+          ) : null}
+        </DragOverlay>
+      </DndContext>
 
-      {!isLoading && list.length === 0 && (
-        <div className="glass" style={{ padding: 20, textAlign: 'center', marginBottom: 14 }}>
-          <div style={{ fontSize: 12, color: 'var(--fg-2)', marginBottom: 8 }}>No widgets on your Home yet.</div>
-          <button onClick={onReset} className="tap" style={primaryBtn}>Install starter set</button>
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
-        {list.map((w, i) => (
-          <EditableWidget
-            key={w.id}
-            widget={w}
-            isFirst={i === 0}
-            isLast={i === list.length - 1}
-            onMove={onMove}
-            onResize={onResize}
-            onRemove={onRemove}
-          />
-        ))}
-
-        {/* "Add" tile — last cell of the grid */}
-        <button
-          onClick={() => setShowLibrary(!showLibrary)}
-          className="tap glass"
-          style={{
-            gridColumn: 'span 1', minHeight: 90, cursor: 'pointer',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
-            background: 'oklch(1 0 0 / 0.02)', border: '1px dashed var(--hairline-strong)',
-          }}
-        >
-          <I.plus size={18} stroke="var(--fg-2)" />
-          <span style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
-            ADD WIDGET
-          </span>
-        </button>
-      </div>
-
-      {/* Library — only when "+" is tapped */}
-      {showLibrary && (
-        <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)', marginBottom: 8 }}>
-            LIBRARY · {libraryTypes.length} AVAILABLE · TAP TO ADD
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-            {libraryTypes.map((t) => {
-              const def = WIDGET_TYPES[t];
-              const Ic = I[def.icon] ?? I.sparkle;
-              return (
-                <button
-                  key={t}
-                  onClick={() => onAdd(t)}
-                  disabled={install.isPending}
-                  className="glass tap"
-                  style={{
-                    padding: 12, textAlign: 'left', cursor: 'pointer',
-                    background: `linear-gradient(135deg, oklch(0.78 0.16 ${def.hue} / 0.10), transparent 70%)`,
-                    borderColor: `oklch(0.78 0.16 ${def.hue} / 0.22)`,
-                    display: 'flex', flexDirection: 'column', gap: 4,
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Ic size={12} stroke={`oklch(0.92 0.14 ${def.hue})`} />
-                    <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--fg-1)' }}>{def.label}</span>
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--fg-3)', lineHeight: 1.3 }}>{def.description}</div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Reset */}
-      {list.length > 0 && (
+      {visibleList.length > 0 && (
         <button onClick={onReset} className="tap" style={resetBtn}>
           Reset to default canvas
         </button>
@@ -261,136 +276,254 @@ export default function WidgetsScreen(_p: ScreenProps) {
   );
 }
 
-// ── EditableWidget — render the real widget + overlay edit controls ──
+// ── Header ────────────────────────────────────────────────────
 
-const EditableWidget: React.FC<{
+const Header: React.FC<{ count: number }> = ({ count }) => (
+  <div style={{ marginBottom: 12, display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 8 }}>
+    <div style={{ minWidth: 0 }}>
+      <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 2, textTransform: 'uppercase', fontFamily: 'var(--font-mono)' }}>
+        EDIT MODE · TAP-HOLD TO DRAG
+      </div>
+      <div className="display" style={{ fontSize: 24, fontWeight: 500, lineHeight: 1.1, marginTop: 4 }}>Your canvas</div>
+    </div>
+    <Chip tone="accent" size="sm">{count} {count === 1 ? 'WIDGET' : 'WIDGETS'}</Chip>
+  </div>
+);
+
+// ── AI prompt ─────────────────────────────────────────────────
+
+const AiPrompt: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit: (e: React.FormEvent) => void;
+  busy: boolean;
+  note: string | null;
+}> = ({ value, onChange, onSubmit, busy, note }) => (
+  <>
+    <form onSubmit={onSubmit} className="glass" style={{ padding: 10, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8, borderColor: 'oklch(0.78 0.16 var(--hue) / 0.25)' }}>
+      <I.sparkle size={14} stroke="oklch(0.92 0.14 var(--hue))" />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Ask Nik — &ldquo;add a sleep widget below score&rdquo;"
+        disabled={busy}
+        style={{
+          flex: 1, background: 'transparent', border: 'none', outline: 'none',
+          color: 'var(--fg-1)', fontSize: 13, fontFamily: 'var(--font-body)',
+        }}
+      />
+      <button
+        type="submit"
+        disabled={busy || !value.trim()}
+        className="tap"
+        style={{
+          padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
+          background: value.trim() && !busy
+            ? 'linear-gradient(135deg, oklch(0.78 0.16 var(--hue)), oklch(0.55 0.22 calc(var(--hue) + 60)))'
+            : 'oklch(1 0 0 / 0.05)',
+          color: value.trim() && !busy ? '#06060a' : 'var(--fg-3)',
+          border: 'none', cursor: busy ? 'wait' : 'pointer',
+        }}
+      >
+        {busy ? '…' : 'GO'}
+      </button>
+    </form>
+    {note && (
+      <div style={{ marginTop: -8, marginBottom: 14, fontSize: 11, color: 'var(--fg-3)', padding: '4px 10px' }}>{note}</div>
+    )}
+  </>
+);
+
+// ── Sortable widget — render the real widget + drag/drop wiring ──
+
+const SortableWidget: React.FC<{
   widget: Widget;
-  isFirst: boolean;
-  isLast: boolean;
-  onMove: (id: string, dir: -1 | 1) => void;
-  onResize: (id: string, size: WidgetSize) => void;
   onRemove: (id: string) => void;
-}> = ({ widget, isFirst, isLast, onMove, onResize, onRemove }) => {
+  onCycleSize: (w: Widget) => void;
+  isBeingDragged: boolean;
+}> = ({ widget, onRemove, onCycleSize, isBeingDragged }) => {
   const def = WIDGET_TYPES[widget.widget_type as WidgetType];
-  const [showSizes, setShowSizes] = React.useState(false);
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: widget.id });
+  // Also accept drops from library on this slot.
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: widget.id });
+
+  const setRefs = (node: HTMLDivElement | null) => {
+    setNodeRef(node);
+    setDropRef(node);
+  };
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    gridColumn: `span ${widget.w}`,
+    gridRow: `span ${widget.h}`,
+    position: 'relative',
+    opacity: isBeingDragged || isDragging ? 0.35 : 1,
+    outline: isOver ? '2px dashed oklch(0.78 0.16 var(--hue))' : undefined,
+    outlineOffset: isOver ? 4 : 0,
+    borderRadius: 16,
+    cursor: 'grab',
+    touchAction: 'manipulation',
+  };
 
   if (!def) {
     return (
-      <div className="glass" style={{ padding: 12, fontSize: 12, color: 'var(--fg-3)', gridColumn: `span ${widget.w}` }}>
-        Unknown “{widget.widget_type}”
-        <button onClick={() => onRemove(widget.id)} style={{ marginLeft: 8, color: 'var(--fg-2)', background: 'none', border: 'none', cursor: 'pointer' }}>
-          remove
-        </button>
+      <div ref={setRefs} style={style} {...attributes} {...listeners}>
+        <div className="glass" style={{ padding: 12, fontSize: 12, color: 'var(--fg-3)' }}>
+          Unknown “{widget.widget_type}”
+          <button onClick={() => onRemove(widget.id)} style={{ marginLeft: 8, color: 'var(--fg-2)', background: 'none', border: 'none', cursor: 'pointer' }}>remove</button>
+        </div>
       </div>
     );
   }
   const Render = def.Component;
 
   return (
-    <div
-      style={{
-        position: 'relative',
-        gridColumn: `span ${widget.w}`,
-        gridRow: `span ${widget.h}`,
-        animation: 'breathe 2.4s ease-in-out infinite',
-      }}
-    >
-      {/* The real widget renders inside (taps disabled while editing) */}
+    <div ref={setRefs} style={style} {...attributes} {...listeners}>
+      {/* Tap-through disabled while editing. */}
       <div style={{ pointerEvents: 'none' }}>
         <Render size={{ w: widget.w as 1 | 2, h: widget.h as 1 | 2 }} config={widget.config} />
       </div>
 
-      {/* Top-right ✕ remove */}
+      {/* ✕ remove */}
       <button
-        onClick={() => onRemove(widget.id)}
+        onClick={(e) => { e.stopPropagation(); onRemove(widget.id); }}
+        onPointerDown={(e) => e.stopPropagation()}
         aria-label="Remove"
         style={{
           position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: '50%',
           background: 'oklch(0.20 0.02 260)', border: '1px solid var(--hairline-strong)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 4,
         }}
       >
         <I.close size={10} stroke="var(--fg-1)" />
       </button>
 
-      {/* Bottom row: ← → and size toggle */}
-      <div
+      {/* size cycle chip — tap to step through allowedSizes */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onCycleSize(widget); }}
+        onPointerDown={(e) => e.stopPropagation()}
+        aria-label="Resize"
         style={{
-          position: 'absolute', bottom: 6, left: 6, right: 6,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 4, zIndex: 2,
+          position: 'absolute', bottom: 6, right: 6, padding: '3px 7px',
+          fontSize: 10, fontFamily: 'var(--font-mono)', letterSpacing: 0.5,
+          background: 'oklch(0.20 0.02 260 / 0.85)',
+          border: '1px solid var(--hairline-strong)', borderRadius: 8,
+          color: 'var(--fg-1)', cursor: 'pointer', zIndex: 4,
         }}
       >
-        <div style={{ display: 'flex', gap: 4 }}>
-          <button onClick={() => onMove(widget.id, -1)} disabled={isFirst} aria-label="Move earlier" style={miniBtn(isFirst, 'rotate(180deg)')}>
-            <I.chevR size={10} stroke="var(--fg-1)" />
-          </button>
-          <button onClick={() => onMove(widget.id, 1)} disabled={isLast} aria-label="Move later" style={miniBtn(isLast)}>
-            <I.chevR size={10} stroke="var(--fg-1)" />
-          </button>
-        </div>
-
-        <button
-          onClick={() => setShowSizes(!showSizes)}
-          aria-label="Resize"
-          style={{
-            ...miniBtn(false),
-            fontSize: 9, fontFamily: 'var(--font-mono)', letterSpacing: 0.5, padding: '0 6px',
-            width: 'auto', minWidth: 28, color: 'var(--fg-1)',
-          }}
-        >
-          {widget.w}×{widget.h}
-        </button>
-      </div>
-
-      {/* Resize overlay */}
-      {showSizes && (
-        <div
-          onClick={() => setShowSizes(false)}
-          style={{
-            position: 'absolute', inset: 0, zIndex: 3,
-            background: 'oklch(0 0 0 / 0.55)', backdropFilter: 'blur(6px)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap', gap: 6,
-            borderRadius: 'inherit',
-          }}
-        >
-          {def.allowedSizes.map((s) => {
-            const active = s.w === widget.w && s.h === widget.h;
-            return (
-              <button
-                key={`${s.w}x${s.h}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onResize(widget.id, s);
-                  setShowSizes(false);
-                }}
-                style={{
-                  padding: '6px 10px', borderRadius: 8, fontSize: 11, fontWeight: 600,
-                  fontFamily: 'var(--font-mono)', letterSpacing: 1, cursor: 'pointer',
-                  background: active ? `oklch(0.78 0.16 ${def.hue})` : 'oklch(1 0 0 / 0.10)',
-                  color: active ? '#06060a' : 'var(--fg-1)',
-                  border: '1px solid var(--hairline-strong)',
-                }}
-              >
-                {s.w}×{s.h}
-              </button>
-            );
-          })}
-        </div>
-      )}
+        {widget.w}×{widget.h}
+      </button>
     </div>
   );
 };
 
-// ── Style helpers ─────────────────────────────────────────────
+// ── DragOverlay ghosts ────────────────────────────────────────
 
-const miniBtn = (disabled: boolean, transform?: string): React.CSSProperties => ({
-  width: 22, height: 22, borderRadius: 6,
-  background: 'oklch(0.20 0.02 260 / 0.85)',
-  border: '1px solid var(--hairline-strong)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  opacity: disabled ? 0.3 : 1, cursor: disabled ? 'not-allowed' : 'pointer',
-  transform,
-});
+const DragGhost: React.FC<{ widget: Widget }> = ({ widget }) => {
+  const def = WIDGET_TYPES[widget.widget_type as WidgetType];
+  if (!def) return null;
+  const Render = def.Component;
+  return (
+    <div style={{
+      width: widget.w === 2 ? 280 : 140, height: 110,
+      transform: 'rotate(-3deg)',
+      boxShadow: '0 16px 50px -10px oklch(0 0 0 / 0.6)',
+      pointerEvents: 'none',
+    }}>
+      <div style={{ display: 'grid', gridTemplateColumns: widget.w === 2 ? '1fr' : '1fr', gap: 0 }}>
+        <Render size={{ w: widget.w as 1 | 2, h: widget.h as 1 | 2 }} config={widget.config} />
+      </div>
+    </div>
+  );
+};
+
+const LibraryGhost: React.FC<{ type: WidgetType }> = ({ type }) => {
+  const def = WIDGET_TYPES[type];
+  const Ic = I[def.icon] ?? I.sparkle;
+  return (
+    <div className="glass" style={{
+      padding: 12, width: 200, transform: 'rotate(-3deg)',
+      boxShadow: '0 16px 50px -10px oklch(0 0 0 / 0.6)',
+      background: `linear-gradient(135deg, oklch(0.78 0.16 ${def.hue} / 0.20), transparent 80%)`,
+      borderColor: `oklch(0.78 0.16 ${def.hue} / 0.4)`,
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Ic size={14} stroke={`oklch(0.92 0.14 ${def.hue})`} />
+        <span style={{ fontSize: 12, fontWeight: 500 }}>{def.label}</span>
+      </div>
+    </div>
+  );
+};
+
+// ── Library ────────────────────────────────────────────────────
+
+const Library: React.FC<{
+  installedTypes: Set<WidgetType>;
+  onTap: (t: WidgetType) => void;
+  installPending: boolean;
+}> = ({ installedTypes, onTap, installPending }) => {
+  // List_preview can be added multiple times; everything else is a
+  // single-instance widget, hidden from the library once installed.
+  const available = ALL_TYPES.filter((t) => !installedTypes.has(t) || t === 'list_preview');
+
+  return (
+    <div style={{ marginBottom: 22 }}>
+      <div style={{ fontSize: 11, color: 'var(--fg-3)', letterSpacing: 1.5, fontFamily: 'var(--font-mono)', marginBottom: 8 }}>
+        LIBRARY · {available.length} AVAILABLE · TAP OR DRAG INTO CANVAS
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {available.map((t) => (
+          <DraggableLibraryItem key={t} type={t} onTap={() => onTap(t)} disabled={installPending} />
+        ))}
+        {available.length === 0 && (
+          <div style={{ gridColumn: 'span 2', fontSize: 12, color: 'var(--fg-3)', padding: 12, textAlign: 'center' }}>
+            All widget types installed. Remove one to free a slot, or add a List preview.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const DraggableLibraryItem: React.FC<{
+  type: WidgetType;
+  onTap: () => void;
+  disabled: boolean;
+}> = ({ type, onTap, disabled }) => {
+  const def = WIDGET_TYPES[type];
+  const Ic = I[def.icon] ?? I.sparkle;
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `lib:${type}` });
+  return (
+    <button
+      ref={setNodeRef}
+      onClick={onTap}
+      disabled={disabled}
+      className="glass tap"
+      style={{
+        padding: 12, textAlign: 'left', cursor: 'grab',
+        background: `linear-gradient(135deg, oklch(0.78 0.16 ${def.hue} / 0.10), transparent 70%)`,
+        borderColor: `oklch(0.78 0.16 ${def.hue} / 0.22)`,
+        display: 'flex', flexDirection: 'column', gap: 4,
+        opacity: isDragging ? 0.4 : 1,
+        touchAction: 'manipulation',
+      }}
+      {...listeners}
+      {...attributes}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Ic size={12} stroke={`oklch(0.92 0.14 ${def.hue})`} />
+        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--fg-1)' }}>{def.label}</span>
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--fg-3)', lineHeight: 1.3 }}>{def.description}</div>
+      <div style={{ marginTop: 4, fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
+        + {def.defaultSize.w}×{def.defaultSize.h} · DRAG OR TAP
+      </div>
+    </button>
+  );
+};
+
+// ── Style helpers ─────────────────────────────────────────────
 
 const primaryBtn: React.CSSProperties = {
   padding: '8px 16px', borderRadius: 10, fontSize: 12, fontWeight: 600,
