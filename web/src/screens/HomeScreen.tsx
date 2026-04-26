@@ -11,6 +11,38 @@ import { profile as profileOps } from '../contracts/profile';
 import { habits as habitsOps } from '../contracts/habits';
 import { quests as questsOps } from '../contracts/quests';
 import { score as scoreOps } from '../contracts/score';
+import { hydration as hydrationOps } from '../contracts/hydration';
+import type { ScreenId } from '../types/app-state';
+
+// Map habit-name keywords to dedicated detail screens. When a habit
+// has its own dashboard (Hydration, Sleep, Fitness, Reading), tapping
+// the Home tile should land there instead of the generic Habits list.
+// Keywords are matched case-insensitively against the habit name.
+const HABIT_NAME_TO_SCREEN: { match: RegExp; screen: ScreenId }[] = [
+  { match: /hydrat|water/i, screen: 'hydration' },
+  { match: /sleep/i,        screen: 'sleep' },
+  { match: /train|gym|workout|fitness|run|cycle/i, screen: 'fitness' },
+  { match: /read|book/i,    screen: 'reading' },
+  { match: /meditat/i,      screen: 'focus' },
+  { match: /diary|journal|reflect/i, screen: 'diary' },
+];
+
+function habitTargetScreen(name: string): ScreenId {
+  for (const { match, screen } of HABIT_NAME_TO_SCREEN) {
+    if (match.test(name)) return screen;
+  }
+  return 'habits';
+}
+
+/** Returns a small extra-info string for habits that have a dedicated
+ *  dashboard with richer per-day data. Today: hydration only. Add more
+ *  here as Sleep / Fitness / Reading earn their own per-day metrics. */
+function hydrateExtra(name: string, today: { totalMl: number; goalMl: number } | undefined): string | undefined {
+  if (/hydrat|water/i.test(name) && today) {
+    return `${today.totalMl} / ${today.goalMl} ml today`;
+  }
+  return undefined;
+}
 
 // Until the family-circle contract lands, the Home avatar row uses these
 // generic placeholders. Names are universal-locale-neutral letters so
@@ -85,6 +117,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
   const { data: habitsList = [] } = useOp(habitsOps.list, {});
   const { data: activeQuests = [] } = useOp(questsOps.list, { status: 'active', limit: 5 });
   const { data: score } = useOp(scoreOps.get, {});
+  const { data: hydrationToday } = useOp(hydrationOps.today, {});
 
   const u = {
     name: profile?.name ?? 'Friend',
@@ -254,9 +287,17 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
           </motion.div>
         </div>
 
-        {/* Highlight habit */}
+        {/* Highlight habit. For habits that have a dedicated dashboard
+            with richer per-day data (Hydration), surface that data
+            inline so the Home tile and the dedicated screen stay in
+            sync. Tap navigates to the dedicated screen. */}
         {highlight && (
-          <HighlightHabit habit={highlight} onTap={() => onNav('habits')} reduce={reduce} />
+          <HighlightHabit
+            habit={highlight}
+            extra={hydrateExtra(highlight.name, hydrationToday)}
+            onTap={() => onNav(habitTargetScreen(highlight.name))}
+            reduce={reduce}
+          />
         )}
 
         {/* Other habits — 2x grid of richer tiles */}
@@ -267,7 +308,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
           style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}
         >
           {restHabits.map((h) => (
-            <HabitMiniTile key={h.id} habit={h} onTap={() => onNav('habits')} reduce={reduce} />
+            <HabitMiniTile key={h.id} habit={h} onTap={() => onNav(habitTargetScreen(h.name))} reduce={reduce} />
           ))}
         </motion.div>
       </motion.section>
@@ -582,7 +623,7 @@ export default function HomeScreen({ onNav, onVoice, intensity = 'medium', theme
 }
 
 // ── Highlight habit (the pinned, larger tile) ────────────────
-const HighlightHabit: React.FC<{ habit: any; onTap: () => void; reduce: boolean }> = ({ habit, onTap, reduce }) => {
+const HighlightHabit: React.FC<{ habit: any; onTap: () => void; reduce: boolean; extra?: string }> = ({ habit, onTap, reduce, extra }) => {
   const HI = I[habit.icon] || I.target;
   const pct = Math.min(1, habit.done / habit.target);
   return (
@@ -625,6 +666,11 @@ const HighlightHabit: React.FC<{ habit: any; onTap: () => void; reduce: boolean 
           <b style={{ color: `oklch(0.92 0.14 ${habit.hue})` }}>{habit.done}</b>
           <span style={{ color: 'var(--fg-3)' }}> / {habit.target} {habit.unit}</span>
         </div>
+        {extra && (
+          <div style={{ fontSize: 11, color: `oklch(0.92 0.14 ${habit.hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 0.5, marginTop: 4, fontVariantNumeric: 'tabular-nums' }}>
+            {extra}
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
           <Chip tone="warn" size="sm">{habit.streak}d STREAK</Chip>
           {habit.source && (

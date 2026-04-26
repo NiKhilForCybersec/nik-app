@@ -6,7 +6,7 @@ export default function TravelScreen(_p: ScreenProps) {
       kind="trip"
       title="Travel"
       eyebrow="TRIPS · PACKING · DOCS"
-      icon="compass"
+      icon="location"
       hue={200}
       addPlaceholder="Add a trip"
       emptyHint="Where are you going next?"

@@ -24,7 +24,7 @@ import { useCommand } from '../lib/useCommand';
 import { useAuth } from '../lib/auth';
 import { zodToJsonSchema } from '../lib/llm/zodToJsonSchema';
 
-type PanelId = 'registry' | 'db' | 'drift' | 'health' | 'llm' | 'feed' | 'graph';
+type PanelId = 'registry' | 'db' | 'drift' | 'health' | 'llm' | 'feed' | 'nav' | 'graph';
 
 const PANELS: { id: PanelId; label: string; icon: keyof typeof I }[] = [
   { id: 'registry', label: 'Registry', icon: 'sparkle' },
@@ -33,6 +33,7 @@ const PANELS: { id: PanelId; label: string; icon: keyof typeof I }[] = [
   { id: 'health',   label: 'Health',   icon: 'heart'  },
   { id: 'llm',      label: 'LLM',      icon: 'mic'    },
   { id: 'feed',     label: 'Activity', icon: 'flame'  },
+  { id: 'nav',      label: 'Navigation', icon: 'location' },
   { id: 'graph',    label: 'Graph',    icon: 'globe'  },
 ];
 
@@ -76,6 +77,7 @@ export default function DevScreen(_p: ScreenProps) {
       {tab === 'health'   && <HealthPanel />}
       {tab === 'llm'      && <LLMPanel />}
       {tab === 'feed'     && <FeedPanel />}
+      {tab === 'nav'      && <NavigationPanel />}
       {tab === 'graph'    && <GraphPanel />}
     </div>
   );
@@ -580,6 +582,94 @@ function previewRow(r: Record<string, unknown>): string {
     if (typeof r[k] === 'string') return `${k}=${(r[k] as string).slice(0, 60)}`;
   }
   return Object.keys(r).slice(0, 4).join(', ');
+}
+
+// ── Navigation panel ──────────────────────────────────────
+//
+// Scans every screen's source for `onNav('xxx')` and `screen: 'xxx'`
+// strings, lists every (source → destination) edge, and flags any
+// destination that doesn't match a known ScreenId. Catches the bug
+// class where adding a new screen forgets to update an old tile's
+// onNav handler — exactly what happened with the Hydrate widget.
+
+const KNOWN_SCREEN_IDS = new Set<string>([
+  'home','chat','habits','fitness','profile','more','familyops','family','circle',
+  'meds','diary','focus','score','sleep','money','brief','vault','errands','couple',
+  'kids','onboard','settings','quests','voice','widgets','stats','comingsoon','dev',
+  'reading','shopping','birthdays','hydration',
+  'nutrition','symptoms','doctors','learning','gratitude','goals','reflection','languages',
+  'friends','network','pets','bills','subscriptions','investments','receipts',
+  'recipes','maintenance','plants','wardrobe','travel','achievements','bucketlist',
+  'timecapsule','photos','projects','career','sideprojects',
+]);
+
+function NavigationPanel() {
+  const edges = React.useMemo(() => {
+    const out: { source: string; dest: string; line: string }[] = [];
+    const navRe = /onNav\(\s*['"]([\w-]+)['"]/g;
+    const stateScreenRe = /screen:\s*['"]([\w-]+)['"]/g;
+    for (const [path, src] of Object.entries(screenSources)) {
+      const screen = path.split('/').pop()!.replace(/\.tsx$/, '');
+      const lines = src.split(/\r?\n/);
+      for (let i = 0; i < lines.length; i++) {
+        for (const re of [navRe, stateScreenRe]) {
+          re.lastIndex = 0;
+          let m;
+          while ((m = re.exec(lines[i])) !== null) {
+            out.push({ source: screen, dest: m[1], line: lines[i].trim().slice(0, 100) });
+          }
+        }
+      }
+    }
+    return out;
+  }, []);
+
+  const broken = edges.filter((e) => !KNOWN_SCREEN_IDS.has(e.dest));
+  const bySource = new Map<string, typeof edges>();
+  for (const e of edges) {
+    if (!bySource.has(e.source)) bySource.set(e.source, []);
+    bySource.get(e.source)!.push(e);
+  }
+  const sorted = Array.from(bySource.entries()).sort(([a], [b]) => a.localeCompare(b));
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+        <Chip tone={broken.length ? 'danger' : 'ok'} size="sm">{broken.length} BROKEN</Chip>
+        <Chip tone="default" size="sm">{edges.length} EDGES</Chip>
+        <Chip tone="default" size="sm">{KNOWN_SCREEN_IDS.size} SCREENS</Chip>
+      </div>
+      {broken.length > 0 && (
+        <div className="glass" style={{ padding: 10, borderRadius: 8, marginBottom: 14, background: 'oklch(0.6 0.22 25 / 0.10)', borderColor: 'oklch(0.6 0.22 25 / 0.4)' }}>
+          <div style={{ fontSize: 10, color: 'oklch(0.85 0.18 25)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>BROKEN NAVIGATION</div>
+          {broken.map((e, i) => (
+            <div key={i} style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--fg-2)', marginBottom: 3 }}>
+              <b style={{ color: 'oklch(0.85 0.18 25)' }}>{e.source}</b> → unknown screen <b style={{ color: 'oklch(0.85 0.18 25)' }}>'{e.dest}'</b>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {sorted.map(([source, srcEdges]) => {
+          const dests = Array.from(new Set(srcEdges.map((e) => e.dest))).sort();
+          return (
+            <div key={source} className="glass" style={{ padding: 10, borderRadius: 8, fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+              <div style={{ color: 'var(--fg)', fontSize: 11, marginBottom: 4 }}>{source}</div>
+              <div style={{ color: 'var(--fg-3)', display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                {dests.map((d) => (
+                  <span key={d} style={{
+                    padding: '1px 6px', borderRadius: 4,
+                    background: KNOWN_SCREEN_IDS.has(d) ? 'oklch(0.78 0.16 var(--hue) / 0.12)' : 'oklch(0.6 0.22 25 / 0.18)',
+                    color: KNOWN_SCREEN_IDS.has(d) ? 'oklch(0.9 0.14 var(--hue))' : 'oklch(0.85 0.18 25)',
+                  }}>→ {d}</span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ── Graph (Cytoscape force-directed, free-play canvas) ────
