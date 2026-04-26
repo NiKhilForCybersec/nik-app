@@ -1,11 +1,16 @@
 import { defineScreen } from '../lib/screen-manifest';
+import { diary } from '../contracts/diary';
 
-// TODO: populate as the screen wires to the registry.
 export const manifest = defineScreen({
   id: 'diary',
-  reads: [],
-  writes: [],
+  reads: [diary.list],
+  writes: [diary.create, diary.update, diary.archive],
   commands: [],
-  permissions: [],
-  aiAffordances: [],
+  permissions: ['diary.read', 'diary.write'],
+  aiAffordances: [
+    'Write a diary entry for me',
+    'Show me bright days from this month',
+    'What was on my mind a week ago?',
+    'Help me reflect on this week',
+  ],
 });

@@ -7,6 +7,8 @@ import React from 'react';
 import type { ScreenProps } from '../App';
 import { I } from '../components/icons';
 import { DiaryComposeSheet, DiaryEntrySheet } from '../components/sheets/DiarySheets';
+import { useOp, useOpMutation } from '../lib/useOp';
+import { diary as diaryOps, type DiaryEntry as DBDiaryEntry } from '../contracts/diary';
 
 type Media = { kind: 'photo' | 'video'; src?: string; caption?: string };
 type Voice = { duration: number; transcript?: string };
@@ -84,13 +86,48 @@ const ON_THIS_DAY = [
 ];
 
 export default function DiaryScreen(_props: ScreenProps) {
-  const [entries, setEntries] = React.useState<DiaryEntry[]>(MOCK_DIARY);
+  const listQ = useOp(diaryOps.list, { limit: 100 });
+  const createMut = useOpMutation(diaryOps.create);
+
+  // Map DB rows → the local DiaryEntry display shape.
+  const dbEntries: DiaryEntry[] = (listQ.data ?? []).map((e: DBDiaryEntry) => {
+    const d = new Date(e.occurred_at);
+    const today = new Date();
+    const sameDay = d.toDateString() === today.toDateString();
+    const days = Math.floor((today.getTime() - d.getTime()) / 86_400_000);
+    const dateLabel = sameDay ? 'Today' : days === 1 ? 'Yesterday' : days < 7 ? `${days} days ago` : d.toLocaleDateString([], { day: 'numeric', month: 'short' });
+    return {
+      id: e.id,
+      date: e.occurred_at.slice(0, 10),
+      dateLabel,
+      mood: e.mood ?? undefined,
+      location: e.location ?? undefined,
+      title: e.title ?? undefined,
+      text: e.body,
+      media: e.photo_urls.map((src) => ({ kind: 'photo' as const, src })),
+      tags: e.tags,
+      voice: e.voice_url && e.voice_seconds ? { duration: e.voice_seconds } : undefined,
+      pillar: e.pillar ?? undefined,
+      score: e.score_delta || undefined,
+    };
+  });
+  // Fall back to MOCK if no DB data + still loading (so the UX has content during the brief seed window).
+  const entries = dbEntries.length || !listQ.isLoading ? dbEntries : MOCK_DIARY;
+
   const [composeOpen, setComposeOpen] = React.useState<boolean | { prompt?: string }>(false);
   const [activeEntry, setActiveEntry] = React.useState<any>(null);
   const [filter, setFilter] = React.useState<string>('all');
 
   const addEntry = (entry: any) => {
-    setEntries(es => [{ id: 'd' + Date.now(), date: '2026-04-25', dateLabel: 'Just now', ...entry }, ...es]);
+    createMut.mutate({
+      title: entry.title,
+      body: entry.text ?? '',
+      mood: entry.mood,
+      tags: entry.tags ?? [],
+      location: entry.location,
+      photoUrls: (entry.media ?? []).filter((m: any) => m.src && m.kind === 'photo').map((m: any) => m.src),
+      pillar: entry.pillar,
+    });
     setComposeOpen(false);
   };
 

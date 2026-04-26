@@ -17,11 +17,13 @@ import { habits } from './habits';
 import { ui } from './ui-commands';
 import { intents, memory } from './intents';
 import { events } from './events';
+import { diary } from './diary';
 
 export { habits } from './habits';
 export { ui } from './ui-commands';
 export { intents, memory } from './intents';
 export { events } from './events';
+export { diary } from './diary';
 
 // Flat registry — used by MCP tool generator + dev overlay.
 export const operations = {
@@ -29,6 +31,7 @@ export const operations = {
   ...intents,
   ...memory,
   ...events,
+  ...diary,
 } as const;
 
 export const commands = {

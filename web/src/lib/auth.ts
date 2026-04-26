@@ -34,6 +34,7 @@ export function useAuth() {
         if (isLocalSupabase) {
           void seedSampleHabitsIfEmpty(id);
           void seedSampleEventsIfEmpty(id);
+          void seedSampleDiaryIfEmpty(id);
         }
         return;
       }
@@ -61,6 +62,7 @@ export function useAuth() {
           // Seed sample data if missing — idempotent; only inserts when empty.
           void seedSampleHabitsIfEmpty(id);
           void seedSampleEventsIfEmpty(id);
+          void seedSampleDiaryIfEmpty(id);
         } else {
           console.warn('[auth] dev sign-in/up failed', signed.error);
           setUserId(DEV_USER_ID);
@@ -110,63 +112,110 @@ async function seedSampleEventsIfEmpty(userId: string) {
 
   const now = Date.now();
   const day = 86_400_000;
+  // Locale-neutral demo data. Real ingestion comes from per-user
+  // integration MCP servers (Gmail / Calendar / etc.) once those land.
   const seed = [
     {
-      kind: 'movie_ticket', title: 'Inception · IMAX',
-      body: 'PVR Forum, Bengaluru · Row F, seats 12-13',
-      occurs_at: new Date(now + 2 * day + 19 * 3_600_000).toISOString(),
-      location: 'PVR Forum Mall, Bengaluru',
-      payload: { booking_ref: 'PVR4UF82', screen: 'Audi 3', seats: ['F12', 'F13'] },
-      source_provider: 'gmail', source_ref: 'gmail:msg_movie_inception',
-    },
-    {
-      kind: 'flight_booking', title: 'IndiGo 6E-271 BLR → DEL',
-      body: 'Departs 06:55 · Terminal 2 · PNR JKL9PQ',
-      occurs_at: new Date(now + 5 * day + 6 * 3_600_000).toISOString(),
-      location: 'Bengaluru International Airport',
-      payload: { airline: 'IndiGo', pnr: 'JKL9PQ', seat: '14A' },
-      source_provider: 'gmail', source_ref: 'gmail:msg_flight_jkl9pq',
-    },
-    {
-      kind: 'calendar_event', title: 'Design review with Priya',
-      body: 'Recurring · Conference Room 3',
+      kind: 'calendar_event', title: 'Team standup',
+      body: 'Recurring · 30 min',
       occurs_at: new Date(now + 3_600_000).toISOString(),
-      location: 'Conference Room 3',
-      payload: { attendees: ['priya@', 'arjun@'], duration_min: 45 },
-      source_provider: 'calendar', source_ref: 'cal:evt_design_review_today',
+      location: 'Video call',
+      payload: { duration_min: 30 },
+      source_provider: 'calendar', source_ref: 'cal:evt_standup_today',
     },
     {
-      kind: 'restaurant_booking', title: 'Toit · 7:30pm',
-      body: 'Table for 2 · anniversary dinner',
+      kind: 'movie_ticket', title: 'Movie · IMAX 7:00 PM',
+      body: 'Two seats · row F',
+      occurs_at: new Date(now + 2 * day + 19 * 3_600_000).toISOString(),
+      location: 'Cinema',
+      payload: { seats: ['F12', 'F13'] },
+      source_provider: 'gmail', source_ref: 'gmail:msg_movie_imax',
+    },
+    {
+      kind: 'flight_booking', title: 'Flight to NYC',
+      body: 'Departs 06:55 · Terminal 2',
+      occurs_at: new Date(now + 5 * day + 6 * 3_600_000).toISOString(),
+      location: 'Airport',
+      payload: { duration_hours: 4 },
+      source_provider: 'gmail', source_ref: 'gmail:msg_flight_nyc',
+    },
+    {
+      kind: 'restaurant_booking', title: 'Dinner reservation',
+      body: 'Table for 2 · 7:30 PM',
       occurs_at: new Date(now + 1 * day + 19 * 3_600_000 + 30 * 60_000).toISOString(),
-      location: 'Toit Brewpub, 100 Feet Road, Indiranagar',
-      payload: { party_size: 2, occasion: 'anniversary' },
-      source_provider: 'gmail', source_ref: 'gmail:msg_toit_booking',
+      location: 'Local restaurant',
+      payload: { party_size: 2 },
+      source_provider: 'gmail', source_ref: 'gmail:msg_restaurant_book',
     },
     {
-      kind: 'bill_due', title: 'Tata Power · ₹3,420',
-      body: 'Auto-pay enabled · debits Apr 28',
+      kind: 'bill_due', title: 'Electricity bill',
+      body: 'Auto-pay enabled',
       occurs_at: new Date(now + 3 * day).toISOString(),
-      payload: { amount: 3420, currency: 'INR', auto: true },
-      source_provider: 'gmail', source_ref: 'gmail:msg_tata_power_apr',
+      payload: { auto: true },
+      source_provider: 'gmail', source_ref: 'gmail:msg_electric_bill',
     },
     {
-      kind: 'birthday_reminder', title: "Anya's birthday · in 6 weeks",
-      body: 'June 9 · she\'s asking for art supplies',
+      kind: 'birthday_reminder', title: "A friend's birthday · in 6 weeks",
+      body: 'They mentioned wanting a new book',
       occurs_at: new Date(now + 42 * day).toISOString(),
-      payload: { person: 'Anya', age_turning: 9, gift_ideas: ['art set', 'sketchbook'] },
-      source_provider: 'gmail', source_ref: 'gmail:msg_anya_bday_2026',
+      payload: {},
+      source_provider: 'gmail', source_ref: 'gmail:msg_friend_bday',
     },
     {
-      kind: 'package_delivery', title: 'Amazon · arriving today',
-      body: 'Standing desk converter · out for delivery',
+      kind: 'package_delivery', title: 'Package arriving today',
+      body: 'Out for delivery',
       occurs_at: new Date(now + 5 * 3_600_000).toISOString(),
-      payload: { courier: 'Amazon Logistics', tracking: 'AMZN-XQ8829' },
-      source_provider: 'gmail', source_ref: 'gmail:msg_amazon_xq8829',
+      payload: { tracking: 'TRK-XQ8829' },
+      source_provider: 'gmail', source_ref: 'gmail:msg_package_today',
     },
   ];
   const { error } = await supabase.from('events').insert(
     seed.map((e) => ({ ...e, user_id: userId })),
   );
   if (error) console.warn('[seed] events insert failed', error);
+}
+
+async function seedSampleDiaryIfEmpty(userId: string) {
+  const { count } = await supabase
+    .from('diary_entries')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((count ?? 0) > 0) return;
+
+  const day = 86_400_000;
+  const now = Date.now();
+  const seed = [
+    {
+      title: 'Long morning, finally',
+      body: 'Slept past the alarm and didn\'t feel guilty about it. Finally felt like a Saturday.',
+      occurred_at: new Date(now).toISOString(),
+      mood: 4, tags: ['family', 'rest'],
+      pillar: 'mind',
+    },
+    {
+      title: 'Stuck on the spec',
+      body: 'The architecture diagram for the new sync engine refuses to land. Three rewrites in. Tomorrow I block 9–11 with no slack.',
+      occurred_at: new Date(now - 1 * day).toISOString(),
+      mood: 2, tags: ['work', 'frustration'],
+      pillar: 'focus',
+    },
+    {
+      title: 'First proper rooftop in months',
+      body: 'Beer and a long catch-up with an old friend. Worth the no-coffee headache tomorrow.',
+      occurred_at: new Date(now - 2 * day).toISOString(),
+      mood: 5, tags: ['friends'],
+      pillar: 'mind',
+    },
+    {
+      title: 'Workout day',
+      body: 'Felt strong. Bench at 70kg for 5 reps. Coach says next week we add another set.',
+      occurred_at: new Date(now - 3 * day).toISOString(),
+      mood: 4, tags: ['fitness'],
+      pillar: 'health',
+    },
+  ];
+  const { error } = await supabase.from('diary_entries').insert(
+    seed.map((e) => ({ ...e, user_id: userId, photo_urls: [], tags: e.tags ?? [] })),
+  );
+  if (error) console.warn('[seed] diary insert failed', error);
 }
