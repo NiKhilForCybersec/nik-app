@@ -127,7 +127,7 @@ const CATEGORIES: Category[] = [
     subtitle: 'Projects, career, time',
     items: [
       { id: 'projects',     icon: 'briefcase', label: 'Projects',       sub: 'Active · sprints · log',      hue: 220, tag: 'NEW' },
-      { id: 'calendar',     icon: 'calendar',  label: 'Calendar',       sub: 'Today · week · agenda',       hue: 280, tag: 'SOON' },
+      { id: 'calendar',     icon: 'calendar',  label: 'Calendar',       sub: 'Today · week · agenda',       hue: 280, tag: 'NEW' },
       { id: 'career',       icon: 'trend',     label: 'Career',         sub: 'Goals · review · next role',  hue: 150, tag: 'NEW' },
       { id: 'sideprojects', icon: 'sparkle',   label: 'Side Projects',  sub: 'Repos · ideas · cadence',     hue: 25,  tag: 'NEW' },
     ],
@@ -156,7 +156,7 @@ const isImplemented = (id: string) =>
    'focus','score','sleep','money','brief','vault','errands','couple','kids','onboard',
    'settings','quests','widgets','stats','more',
    // Phase C — items-backed dashboards
-   'reading','shopping','birthdays','hydration',
+   'reading','shopping','birthdays','hydration','calendar',
    'nutrition','symptoms','doctors',
    'learning','gratitude','goals','reflection','languages',
    'friends','network','pets',

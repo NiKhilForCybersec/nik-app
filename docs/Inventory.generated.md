@@ -8,6 +8,8 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 
 | File | Exports |
 |---|---|
+| [web/src/contracts/calendar.ts](../web/src/contracts/calendar.ts) | `calendar` |
+| _Thin wrapper over the events table for calendar-shaped reads + writes._ | |
 | [web/src/contracts/chat.ts](../web/src/contracts/chat.ts) | `ChatMessage`, `ChatRole`, `ChatToolCall`, `chat` |
 | _The Chat screen replays the last N messages on mount + appends new ones_ | |
 | [web/src/contracts/circle.ts](../web/src/contracts/circle.ts) | `CircleMember`, `PRIVACY_CATEGORIES`, `PrivacyCategoryId`, `Relation`, `ShareTier`, `SharingMatrix`, `Status`, `TRUST_TIERS`, `canCircleView`, `circle` |
@@ -21,7 +23,7 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 | _Single source of truth for everything the AI/app/backend can do_ | |
 | [web/src/contracts/hydration.ts](../web/src/contracts/hydration.ts) | `HydrationIntake`, `HydrationToday`, `hydration` |
 | _Append-only intake ledger. Daily totals computed on read. The default_ | |
-| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `canCircleView`, `chat`, `circle`, `commands`, `diary`, `events`, `familyOps`, `habits`, `hydration`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
+| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `calendar`, `canCircleView`, `chat`, `circle`, `commands`, `diary`, `events`, `familyOps`, `habits`, `hydration`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
 | _Re-exports every operation and UI command. Imports here are the_ | |
 | [web/src/contracts/intents.ts](../web/src/contracts/intents.ts) | `Intent`, `IntentKind`, `Memory`, `MemoryKind`, `intents`, `memory` |
 | _Operations the AI uses to remember things and schedule callbacks._ | |
@@ -108,6 +110,9 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | _Reads ingested events from `events` table (movie tickets, calendar_ | |
 | [web/src/screens/BucketlistScreen.manifest.ts](../web/src/screens/BucketlistScreen.manifest.ts) | `manifest` |
 | [web/src/screens/BucketlistScreen.tsx](../web/src/screens/BucketlistScreen.tsx) | `*default*`, `BucketlistScreen` |
+| [web/src/screens/CalendarScreen.manifest.ts](../web/src/screens/CalendarScreen.manifest.ts) | `manifest` |
+| [web/src/screens/CalendarScreen.tsx](../web/src/screens/CalendarScreen.tsx) | `*default*`, `CalendarScreen` |
+| _Today's agenda + the next 7 days, manual quick-add, archive on tap._ | |
 | [web/src/screens/CareerScreen.manifest.ts](../web/src/screens/CareerScreen.manifest.ts) | `manifest` |
 | [web/src/screens/CareerScreen.tsx](../web/src/screens/CareerScreen.tsx) | `*default*`, `CareerScreen` |
 | [web/src/screens/ChatScreen.manifest.ts](../web/src/screens/ChatScreen.manifest.ts) | `manifest` |
@@ -272,6 +277,6 @@ _Shared type-only modules._
 
 ---
 
-**Stats**: 157 files, 383 exports.
+**Stats**: 160 files, 388 exports.
 
-**Last regenerated**: 2026-04-26T06:49:19.467Z.
+**Last regenerated**: 2026-04-26T06:55:24.873Z.
