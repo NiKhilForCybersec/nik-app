@@ -167,8 +167,9 @@ export const items = {
 
   remove: defineOp({
     name: 'items.remove',
-    description: 'Permanently delete an item. Use only when the user explicitly asks to delete (not just archive).',
+    description: 'Permanently delete an item. Use only when the user explicitly asks to delete (not just archive). Destructive — prefer items.archive.',
     kind: 'mutation',
+    mutability: 'confirm',
     permissions: ['items.write'],
     tags: ['items'],
     input: z.object({ id: z.string().uuid() }).strict(),

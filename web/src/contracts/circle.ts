@@ -232,8 +232,9 @@ export const circle = {
 
   remove: defineOp({
     name: 'circle.remove',
-    description: 'Remove a circle member. Cannot remove "self".',
+    description: 'Remove a circle member. Cannot remove "self". Destructive — confirm before execution.',
     kind: 'mutation',
+    mutability: 'confirm',
     permissions: ['circle.write'],
     tags: ['circle'],
     input: z.object({ memberId: z.string().min(1).max(40) }).strict(),

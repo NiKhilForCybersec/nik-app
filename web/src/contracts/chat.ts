@@ -96,6 +96,7 @@ export const chat = {
     name: 'chat.clear',
     description: 'Delete all chat history for the current user. Use only when the user explicitly asks to start over.',
     kind: 'mutation',
+    mutability: 'confirm',
     permissions: ['chat.write'],
     tags: ['chat'],
     input: z.object({}).strict(),

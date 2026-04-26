@@ -80,6 +80,10 @@ export function buildToolCatalog(): LLMTool[] {
   const tools: LLMTool[] = [];
   for (const op of opByName.values()) {
     if (op.exposeToAI === false) continue;
+    // Hide derived-mutation ops from the AI entirely. Reads are always
+    // safe (a `derived` query is just informative); the policy only
+    // applies to writes.
+    if (op.kind === 'mutation' && op.mutability === 'derived') continue;
     tools.push({
       name: toLLMName(op.name),
       description: op.description,

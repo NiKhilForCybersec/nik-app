@@ -142,6 +142,7 @@ export const habits = {
     name: 'habits.remove',
     description: 'Delete a habit. Use only when the user explicitly asks to stop tracking it. Confirm with them first if they\'re mid-conversation.',
     kind: 'mutation',
+    mutability: 'confirm',
     permissions: ['habits.write'],
     tags: ['habits'],
     input: z.object({ id: z.string().uuid() }).strict(),

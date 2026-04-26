@@ -19,7 +19,9 @@ _Backend ops + UI commands. The MCP server auto-exposes these._
 | _Tasks + alarms shared between the parent(s) for kids' routines._ | |
 | [web/src/contracts/habits.ts](../web/src/contracts/habits.ts) | `Habit`, `HabitIcon`, `HabitSource`, `habits` |
 | _Single source of truth for everything the AI/app/backend can do_ | |
-| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `canCircleView`, `chat`, `circle`, `commands`, `diary`, `events`, `familyOps`, `habits`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
+| [web/src/contracts/hydration.ts](../web/src/contracts/hydration.ts) | `HydrationIntake`, `HydrationToday`, `hydration` |
+| _Append-only intake ledger. Daily totals computed on read. The default_ | |
+| [web/src/contracts/index.ts](../web/src/contracts/index.ts) | `CommandName`, `ItemKind`, `OperationName`, `PRIVACY_CATEGORIES`, `REGISTRY`, `TRUST_TIERS`, `canCircleView`, `chat`, `circle`, `commands`, `diary`, `events`, `familyOps`, `habits`, `hydration`, `intents`, `items`, `memory`, `operations`, `profile`, `quests`, `score`, `sleep`, `ui` |
 | _Re-exports every operation and UI command. Imports here are the_ | |
 | [web/src/contracts/intents.ts](../web/src/contracts/intents.ts) | `Intent`, `IntentKind`, `Memory`, `MemoryKind`, `intents`, `memory` |
 | _Operations the AI uses to remember things and schedule callbacks._ | |
@@ -58,7 +60,7 @@ _React hooks, helpers, the LLM router, the Supabase client._
 | _The shared shape every model-backed provider implements: cloud_ | |
 | [web/src/lib/llm/zodToJsonSchema.ts](../web/src/lib/llm/zodToJsonSchema.ts) | `zodToJsonSchema` |
 | _Tiny Zod → JSON Schema converter._ | |
-| [web/src/lib/operations.ts](../web/src/lib/operations.ts) | `FlattenOps`, `OperationContext`, `OperationDef`, `OperationKind`, `defineOp` |
+| [web/src/lib/operations.ts](../web/src/lib/operations.ts) | `FlattenOps`, `Mutability`, `OperationContext`, `OperationDef`, `OperationKind`, `defineOp` |
 | _Every "thing Nik can do" is defined here once and used by THREE consumers:_ | |
 | [web/src/lib/screen-manifest.ts](../web/src/lib/screen-manifest.ts) | `ScreenManifest`, `defineScreen` |
 | _Each screen has a sibling `<Name>Screen.manifest.ts` that declares_ | |
@@ -153,6 +155,9 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | _Big hero ring · per-habit animated cards · confetti on completion · AI suggestions_ | |
 | [web/src/screens/HomeScreen.manifest.ts](../web/src/screens/HomeScreen.manifest.ts) | `manifest` |
 | [web/src/screens/HomeScreen.tsx](../web/src/screens/HomeScreen.tsx) | `*default*`, `AnimatedRing`, `HomeScreen`, `LiveStat` |
+| [web/src/screens/HydrationScreen.manifest.ts](../web/src/screens/HydrationScreen.manifest.ts) | `manifest` |
+| [web/src/screens/HydrationScreen.tsx](../web/src/screens/HydrationScreen.tsx) | `*default*`, `HydrationScreen` |
+| _Today's progress + quick-add buttons + intake history. Bumps the_ | |
 | [web/src/screens/InvestmentsScreen.manifest.ts](../web/src/screens/InvestmentsScreen.manifest.ts) | `manifest` |
 | [web/src/screens/InvestmentsScreen.tsx](../web/src/screens/InvestmentsScreen.tsx) | `*default*`, `InvestmentsScreen` |
 | [web/src/screens/KidsScreen.manifest.ts](../web/src/screens/KidsScreen.manifest.ts) | `manifest` |
@@ -267,6 +272,6 @@ _Shared type-only modules._
 
 ---
 
-**Stats**: 154 files, 375 exports.
+**Stats**: 157 files, 383 exports.
 
-**Last regenerated**: 2026-04-26T05:35:55.607Z.
+**Last regenerated**: 2026-04-26T06:01:39.424Z.
