@@ -645,23 +645,64 @@ const DraggableLibraryItem: React.FC<{
       disabled={disabled}
       className="glass tap"
       style={{
-        padding: 12, textAlign: 'left', cursor: 'grab',
-        background: `linear-gradient(135deg, oklch(0.78 0.16 ${def.hue} / 0.10), transparent 70%)`,
-        borderColor: `oklch(0.78 0.16 ${def.hue} / 0.22)`,
-        display: 'flex', flexDirection: 'column', gap: 4,
+        position: 'relative', overflow: 'hidden',
+        padding: 14, textAlign: 'left', cursor: 'grab',
+        background: `
+          radial-gradient(ellipse 70% 50% at 100% 0%, oklch(0.78 0.16 ${def.hue} / 0.22), transparent 65%),
+          linear-gradient(135deg, oklch(0.20 0.04 ${def.hue} / 0.40), oklch(0.12 0.02 260 / 0.30) 70%)
+        `,
+        borderColor: `oklch(0.78 0.16 ${def.hue} / 0.32)`,
+        display: 'flex', flexDirection: 'column', gap: 8,
         opacity: isDragging ? 0.4 : 1,
         touchAction: 'manipulation',
+        minHeight: 96,
       }}
       {...listeners}
       {...attributes}
     >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-        <Ic size={12} stroke={`oklch(0.92 0.14 ${def.hue})`} />
-        <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--fg-1)' }}>{def.label}</span>
+      {/* Ambient halo */}
+      <div aria-hidden style={{
+        position: 'absolute', top: -20, right: -20, width: 90, height: 90, borderRadius: '50%',
+        background: `radial-gradient(circle, oklch(0.78 0.16 ${def.hue} / 0.22) 0%, transparent 70%)`,
+        pointerEvents: 'none',
+      }} />
+
+      {/* Header row: icon disc + label */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative', zIndex: 1 }}>
+        <div style={{
+          width: 32, height: 32, borderRadius: 10,
+          background: `linear-gradient(135deg, oklch(0.78 0.16 ${def.hue}), oklch(0.55 0.22 ${(def.hue + 40) % 360}))`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: `0 6px 16px -4px oklch(0.78 0.16 ${def.hue} / 0.45)`,
+          flexShrink: 0,
+        }}>
+          <Ic size={16} stroke="#06060a" sw={2.2} />
+        </div>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {def.label}
+          </div>
+          <div style={{ fontSize: 9, color: `oklch(0.85 0.13 ${def.hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1.5 }}>
+            {def.defaultSize.w}×{def.defaultSize.h} · ALL SIZES
+          </div>
+        </div>
       </div>
-      <div style={{ fontSize: 10, color: 'var(--fg-3)', lineHeight: 1.3 }}>{def.description}</div>
-      <div style={{ marginTop: 4, fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
-        + {def.defaultSize.w}×{def.defaultSize.h} · DRAG OR TAP
+
+      {/* Description */}
+      <div style={{ fontSize: 11, color: 'var(--fg-2)', lineHeight: 1.4, position: 'relative', zIndex: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+        {def.description}
+      </div>
+
+      {/* Footer hint */}
+      <div style={{
+        marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6,
+        fontSize: 9, color: `oklch(0.85 0.13 ${def.hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1.2,
+        position: 'relative', zIndex: 1,
+      }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <I.plus size={10} stroke={`oklch(0.85 0.13 ${def.hue})`} sw={2.2} /> ADD
+        </span>
+        <span style={{ opacity: 0.6 }}>DRAG TO PLACE</span>
       </div>
     </button>
   );

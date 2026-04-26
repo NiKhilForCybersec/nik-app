@@ -411,15 +411,56 @@ const HabitRing: React.FC<WidgetRenderProps<{ habitId?: string }>> = ({ size, co
   const habit = config.habitId
     ? habits.find((h) => h.id === config.habitId)
     : habits[0];
-  if (!habit) return <WidgetShell hue={200} icon="check" label="Habit" size={size} onOpen={onOpen}><div style={{ fontSize: 11, color: 'var(--fg-3)' }}>No habit linked</div></WidgetShell>;
+  if (!habit) return (
+    <WidgetShell hue={200} icon="check" label="Habit" size={size} onOpen={onOpen}>
+      <div style={{ fontSize: 12, color: 'var(--fg-3)' }}>No habit linked.</div>
+    </WidgetShell>
+  );
   const pct = Math.min(1, habit.done / habit.target);
+  const Ic = I[habit.icon as keyof typeof I] ?? I.check;
+  const isDone = habit.done >= habit.target;
+  // Ring SVG geometry
+  const r = size.w === 2 || size.h === 2 ? 26 : 20;
+  const c = 2 * Math.PI * r;
+  const offset = c * (1 - pct);
+  const ringSize = r * 2 + 8;
   return (
-    <WidgetShell hue={habit.hue} icon="check" label={habit.name} size={size} onOpen={onOpen}>
-      <div className="display" style={{ fontSize: size.w === 2 ? 28 : 22, fontWeight: 500, color: `oklch(0.92 0.14 ${habit.hue})`, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
-        {habit.done} <span style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>/ {habit.target} {habit.unit}</span>
-      </div>
-      <div style={{ marginTop: 8, height: 4, borderRadius: 99, background: 'oklch(1 0 0 / 0.06)', overflow: 'hidden' }}>
-        <div style={{ width: `${pct * 100}%`, height: '100%', background: `oklch(0.78 0.16 ${habit.hue})` }} />
+    <WidgetShell hue={habit.hue} icon={habit.icon as keyof typeof I} label={habit.name} size={size} onOpen={onOpen}
+      accent={isDone ? <Chip tone="ok" size="sm">DONE</Chip> : <Chip tone="default" size="sm">{Math.round(pct * 100)}%</Chip>}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Ring */}
+        <div style={{ position: 'relative', width: ringSize, height: ringSize, flexShrink: 0 }}>
+          <svg width={ringSize} height={ringSize} style={{ position: 'absolute', inset: 0, transform: 'rotate(-90deg)' }}>
+            <circle cx={ringSize/2} cy={ringSize/2} r={r} fill="none"
+              stroke={`oklch(0.78 0.16 ${habit.hue} / 0.18)`} strokeWidth="3" />
+            <motion.circle cx={ringSize/2} cy={ringSize/2} r={r} fill="none"
+              stroke={`oklch(0.85 0.18 ${habit.hue})`}
+              strokeWidth="3" strokeLinecap="round"
+              strokeDasharray={c}
+              initial={{ strokeDashoffset: c }}
+              animate={{ strokeDashoffset: offset }}
+              transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+            />
+          </svg>
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Ic size={r-4} stroke={`oklch(0.92 0.14 ${habit.hue})`} />
+          </div>
+        </div>
+        {/* Numbers */}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div className="display" style={{ fontSize: size.w === 2 ? 24 : 20, fontWeight: 600, color: `oklch(0.92 0.14 ${habit.hue})`, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+            {habit.done}
+          </div>
+          <div style={{ fontSize: 10, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+            / {habit.target} {habit.unit}
+          </div>
+          {habit.streak > 0 && (
+            <div style={{ marginTop: 4, display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, color: 'oklch(0.85 0.18 40)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
+              <I.flame size={9} stroke="oklch(0.85 0.18 40)" /> {habit.streak}D
+            </div>
+          )}
+        </div>
       </div>
     </WidgetShell>
   );
@@ -428,12 +469,36 @@ const HabitRing: React.FC<WidgetRenderProps<{ habitId?: string }>> = ({ size, co
 const NextQuest: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
   const { data: list = [] } = useOp(questsOps.list, { status: 'pending', limit: 1 });
   const q = list[0];
+  const hue = 260;
   return (
-    <WidgetShell hue={260} icon="sparkle" label="Next quest" size={size} onOpen={onOpen}>
+    <WidgetShell hue={hue} icon="sparkle" label="Next quest" size={size} onOpen={onOpen} glow
+      accent={q ? <Chip tone="accent" size="sm">{q.rank}</Chip> : undefined}
+    >
       {q ? (
-        <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)' }}>{q.title}</div>
+        <>
+          <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 4 }}>
+            QUEUED · NEXT UP
+          </div>
+          <div className="display" style={{ fontSize: size.w === 2 ? 17 : 13, fontWeight: 500, color: 'var(--fg-1)', lineHeight: 1.2, marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {q.title}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+            <span style={{ fontSize: 10, color: `oklch(0.85 0.16 ${hue})`, fontFamily: 'var(--font-mono)' }}>
+              +{q.xp ?? 0} XP
+            </span>
+            <motion.span
+              animate={{ x: [0, 3, 0] }}
+              transition={{ duration: 1.6, repeat: Infinity }}
+              style={{ fontSize: 11, color: `oklch(0.85 0.16 ${hue})`, fontFamily: 'var(--font-mono)', letterSpacing: 1 }}
+            >
+              START →
+            </motion.span>
+          </div>
+        </>
       ) : (
-        <div style={{ fontSize: 11, color: 'var(--fg-3)' }}>Nothing pending</div>
+        <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4, lineHeight: 1.4 }}>
+          Nothing pending. <span style={{ color: `oklch(0.85 0.16 ${hue})` }}>Plan a quest →</span>
+        </div>
       )}
     </WidgetShell>
   );
@@ -446,31 +511,90 @@ const TodayEvents: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
     const d = new Date(e.occurs_at);
     return d.toDateString() === new Date().toDateString();
   });
+  const next = today[0];
+  const time = next?.occurs_at
+    ? new Date(next.occurs_at).toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' })
+    : null;
   return (
-    <WidgetShell hue={200} icon="calendar" label="Today" size={size} onOpen={onOpen}>
-      <HeroNumber value={today.length} hue={200} size={size} gradient={[180, 220]} />
-      <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginTop: 6 }}>
-        {today.length === 0 ? 'no events' : today.length === 1 ? 'event' : 'events'}
-      </div>
+    <WidgetShell hue={200} icon="calendar" label="Today" size={size} onOpen={onOpen}
+      accent={today.length > 0 ? <Chip tone="default" size="sm">{today.length}</Chip> : undefined}
+    >
+      {today.length > 0 ? (
+        <>
+          <HeroNumber value={today.length} hue={200} size={size} gradient={[180, 240]} />
+          <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginTop: 4, letterSpacing: 1 }}>
+            {today.length === 1 ? 'EVENT' : 'EVENTS'}
+          </div>
+          {next && (
+            <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--hairline)', fontSize: 11 }}>
+              <div style={{ color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: 1, marginBottom: 2 }}>NEXT · {time?.toUpperCase()}</div>
+              <div style={{ color: 'var(--fg-1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {next.title}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <HeroNumber value={'—'} hue={200} size={size} gradient={[180, 240]} />
+          <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 6, lineHeight: 1.4 }}>
+            Nothing today. <span style={{ color: 'oklch(0.85 0.14 200)' }}>Add an event →</span>
+          </div>
+        </>
+      )}
     </WidgetShell>
   );
 };
 
 const ListPreview: React.FC<WidgetRenderProps<{ kind?: string; limit?: number }>> = ({ size, config, onOpen }) => {
   const kind = (config.kind ?? 'reading') as z.infer<typeof ItemKind>;
-  const { data: items = [] } = useOp(itemsOps.list, { kind, limit: config.limit ?? 4 });
+  const { data: items = [] } = useOp(itemsOps.list, { kind, limit: config.limit ?? 5 });
+  const open = items.filter((i) => i.status !== 'done');
+  const done = items.filter((i) => i.status === 'done').length;
+  const hue = 280;
+  const lines = size.h === 2 ? 6 : 3;
   return (
-    <WidgetShell hue={280} icon="grid" label={kind} size={size} onOpen={onOpen}>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        {items.slice(0, 4).map((item) => (
-          <div key={item.id} style={{ fontSize: 11, color: item.status === 'done' ? 'var(--fg-3)' : 'var(--fg-2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textDecoration: item.status === 'done' ? 'line-through' : 'none' }}>
-            {item.title}
-          </div>
-        ))}
-        {items.length === 0 && (
-          <div style={{ fontSize: 11, color: 'var(--fg-3)' }}>Empty list</div>
-        )}
-      </div>
+    <WidgetShell hue={hue} icon="grid" label={kind} size={size} onOpen={onOpen}
+      accent={items.length > 0 ? <Chip tone="default" size="sm">{open.length} OPEN</Chip> : undefined}
+    >
+      {items.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--fg-3)', marginTop: 4, lineHeight: 1.4 }}>
+          Empty {kind} list. <span style={{ color: `oklch(0.85 0.16 ${hue})` }}>Add an item →</span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {items.slice(0, lines).map((item, i) => (
+            <motion.div
+              key={item.id}
+              initial={{ opacity: 0, x: -4 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.05 + i * 0.04 }}
+              style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11 }}
+            >
+              <span style={{
+                width: 14, height: 14, borderRadius: 4,
+                border: `1.5px solid oklch(0.78 0.16 ${hue} / ${item.status === 'done' ? 0.4 : 0.7})`,
+                background: item.status === 'done' ? `oklch(0.78 0.16 ${hue} / 0.18)` : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                {item.status === 'done' && <I.check size={9} stroke={`oklch(0.92 0.14 ${hue})`} sw={2.4} />}
+              </span>
+              <span style={{
+                color: item.status === 'done' ? 'var(--fg-3)' : 'var(--fg-1)',
+                textDecoration: item.status === 'done' ? 'line-through' : 'none',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1,
+              }}>
+                {item.title}
+              </span>
+            </motion.div>
+          ))}
+          {items.length > lines && (
+            <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1, marginTop: 2 }}>
+              + {items.length - lines} MORE · {done} DONE
+            </div>
+          )}
+        </div>
+      )}
     </WidgetShell>
   );
 };
@@ -521,50 +645,73 @@ const HabitsToday: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
 };
 
 const FocusStarter: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
+  const presets = [25, 50, 90];
   return (
-    <WidgetShell hue={140} icon="brain" label="Focus" size={size} onOpen={onOpen} glow>
+    <WidgetShell hue={140} icon="brain" label="Focus" size={size} onOpen={onOpen} glow
+      accent={<motion.div
+        animate={{ scale: [1, 1.25, 1], opacity: [0.6, 1, 0.6] }}
+        transition={{ duration: 2.4, repeat: Infinity }}
+        style={{ width: 8, height: 8, borderRadius: 99, background: 'oklch(0.78 0.18 140)', boxShadow: '0 0 8px oklch(0.78 0.18 140)' }}
+      />}
+    >
+      <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 4 }}>
+        DEEP WORK · NO PHONE
+      </div>
       <div className="display" style={{ fontSize: size.w === 2 ? 22 : 16, fontWeight: 500, color: 'var(--fg-1)', lineHeight: 1.1 }}>
         Begin a session
       </div>
-      <div style={{ fontSize: 11, color: 'var(--fg-2)', marginTop: 4, lineHeight: 1.4 }}>
-        Pick a length when you start
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 11, color: 'oklch(0.85 0.16 140)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
-        <motion.div
-          animate={{ opacity: [0.4, 1, 0.4] }}
-          transition={{ duration: 1.5, repeat: Infinity }}
-          style={{ width: 6, height: 6, borderRadius: '50%', background: 'oklch(0.78 0.18 140)' }}
-        /> START →
+      <div style={{ display: 'flex', gap: 6, marginTop: 10, flexWrap: 'wrap' }}>
+        {presets.map((m) => (
+          <div key={m} style={{
+            padding: '4px 8px', borderRadius: 6, fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 600, letterSpacing: 0.5,
+            background: 'oklch(0.78 0.16 140 / 0.15)',
+            border: '1px solid oklch(0.78 0.16 140 / 0.30)',
+            color: 'oklch(0.92 0.14 140)',
+          }}>
+            {m}M
+          </div>
+        ))}
       </div>
     </WidgetShell>
   );
 };
 
 const VitalsStrip: React.FC<WidgetRenderProps> = ({ size, onOpen }) => {
-  // Honest empty until HealthKit lands. The static Home block had
-  // sine-wave animations + seeded numbers — both lying. We show "—"
-  // and a tag so the user knows why.
+  const cells: { label: string; sub: string; hue: number; icon: keyof typeof I }[] = [
+    { label: 'STEPS', sub: '/ 8k',  hue: 30,  icon: 'flame' },
+    { label: 'HEART', sub: 'BPM',   hue: 0,   icon: 'heart' },
+    { label: 'KCAL',  sub: '/ 2.2k', hue: 40, icon: 'flame' },
+  ];
   return (
-    <WidgetShell hue={20} icon="flame" label="Vitals" size={size} onOpen={onOpen}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, fontSize: 10, fontFamily: 'var(--font-mono)' }}>
-        <div>
-          <div style={{ color: 'var(--fg-3)', letterSpacing: 1 }}>STEPS</div>
-          <div className="display" style={{ fontSize: 18, fontWeight: 500, color: 'var(--fg-2)' }}>—</div>
-          <div style={{ color: 'var(--fg-3)' }}>/ 8k</div>
-        </div>
-        <div>
-          <div style={{ color: 'var(--fg-3)', letterSpacing: 1 }}>HEART</div>
-          <div className="display" style={{ fontSize: 18, fontWeight: 500, color: 'var(--fg-2)' }}>—</div>
-          <div style={{ color: 'var(--fg-3)' }}>BPM</div>
-        </div>
-        <div>
-          <div style={{ color: 'var(--fg-3)', letterSpacing: 1 }}>KCAL</div>
-          <div className="display" style={{ fontSize: 18, fontWeight: 500, color: 'var(--fg-2)' }}>—</div>
-          <div style={{ color: 'var(--fg-3)' }}>/ 2.2k</div>
-        </div>
+    <WidgetShell hue={20} icon="flame" label="Vitals" size={size} onOpen={onOpen}
+      accent={<Chip tone="warn" size="sm">DEMO</Chip>}
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+        {cells.map((c) => {
+          const Ic = I[c.icon] ?? I.sparkle;
+          return (
+            <div key={c.label} style={{
+              padding: 8, borderRadius: 10,
+              background: `linear-gradient(160deg, oklch(0.78 0.16 ${c.hue} / 0.10), transparent 80%)`,
+              border: `1px solid oklch(0.78 0.16 ${c.hue} / 0.20)`,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <Ic size={9} stroke={`oklch(0.92 0.14 ${c.hue})`} />
+                <span style={{ fontSize: 8, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.2 }}>{c.label}</span>
+              </div>
+              <div className="display" style={{ fontSize: size.w === 2 ? 22 : 16, fontWeight: 600, color: `oklch(0.85 0.14 ${c.hue})`, fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
+                —
+              </div>
+              <div style={{ fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', marginTop: 2 }}>
+                {c.sub}
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <div style={{ marginTop: 6, fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1 }}>
-        NO HEALTHKIT YET
+      <div style={{ marginTop: 8, fontSize: 9, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1, display: 'flex', alignItems: 'center', gap: 4 }}>
+        <motion.span animate={{ opacity: [0.4, 1, 0.4] }} transition={{ duration: 2, repeat: Infinity }} style={{ width: 5, height: 5, borderRadius: 99, background: 'oklch(0.78 0.18 25)', display: 'inline-block' }} />
+        NO HEALTHKIT YET · CONNECT →
       </div>
     </WidgetShell>
   );
