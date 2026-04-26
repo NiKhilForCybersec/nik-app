@@ -29,57 +29,6 @@ type DiaryEntry = {
   score?: number;
 };
 
-const MOCK_DIARY: DiaryEntry[] = [
-  {
-    id: 'd1', date: '2026-04-25', dateLabel: 'Today',
-    mood: 4, weather: '☀️ 24°', location: 'Bandra · Cafe Zoe',
-    title: 'Long morning, finally',
-    text: "Slept past the alarm and didn't feel guilty about it. Aanya drew a dragon at breakfast and named it Pomelo.",
-    media: [
-      { kind: 'photo', src: 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400', caption: 'Cafe Zoe' },
-    ],
-    tags: ['family', 'aanya'],
-    aiPrompt: 'You named your sleep "earned, not stolen" today. What changed?',
-    voice: { duration: 47, transcript: 'Pomelo the dragon eats only mangoes apparently.' },
-    pillar: 'mind',
-    score: +5,
-  },
-  {
-    id: 'd2', date: '2026-04-24', dateLabel: 'Yesterday',
-    mood: 3, weather: '🌧 22°', location: 'Home',
-    title: 'Stuck on the spec',
-    text: 'The architecture diagram for the new sync engine refuses to land. Three rewrites in. Tomorrow I block 9–11 with no slack.',
-    media: [],
-    tags: ['work', 'frustration'],
-    aiPrompt: null,
-    pillar: 'mind',
-    score: +3,
-  },
-  {
-    id: 'd3', date: '2026-04-23', dateLabel: 'Wed · Apr 23',
-    mood: 5, weather: '☀️ 26°', location: 'Versova Beach',
-    title: 'First proper run since the surgery',
-    text: '5km without stopping. Lungs sang. Reminded me what the body was for before laptops.',
-    media: [
-      { kind: 'photo', src: 'https://images.unsplash.com/photo-1502209524164-acea936639a2?w=400' },
-      { kind: 'photo', src: 'https://images.unsplash.com/photo-1466721591366-2d5fba72006d?w=400' },
-    ],
-    tags: ['health', 'milestone'],
-    pillar: 'health',
-    score: +8,
-  },
-  {
-    id: 'd4', date: '2026-04-22', dateLabel: 'Tue · Apr 22',
-    mood: 4, weather: '🌤 25°', location: "Home · Anya's room",
-    title: 'Bedtime story #214',
-    text: 'Anya asked if grown-ups have favourite stuffed animals. I lied and said no. Pomelo would be embarrassed.',
-    tags: ['family', 'kids'],
-    media: [],
-    pillar: 'family',
-    score: +5,
-  },
-];
-
 const ON_THIS_DAY = [
   { yearsAgo: 1, title: "Anya's 4th birthday", preview: 'She blew out the candles in two attempts and demanded a re-shoot.', date: 'Apr 25, 2025' },
   { yearsAgo: 2, title: 'Quit the agency', preview: 'Last day at Zenith. Drove home with the windows down. Felt like air.', date: 'Apr 25, 2024' },
@@ -111,8 +60,7 @@ export default function DiaryScreen(_props: ScreenProps) {
       score: e.score_delta || undefined,
     };
   });
-  // Fall back to MOCK if no DB data + still loading (so the UX has content during the brief seed window).
-  const entries = dbEntries.length || !listQ.isLoading ? dbEntries : MOCK_DIARY;
+  const entries = dbEntries;
 
   const [composeOpen, setComposeOpen] = React.useState<boolean | { prompt?: string }>(false);
   const [activeEntry, setActiveEntry] = React.useState<any>(null);
