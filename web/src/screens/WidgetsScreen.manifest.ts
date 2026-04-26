@@ -1,20 +1,32 @@
 import { defineScreen } from '../lib/screen-manifest';
-import { widgets } from '../contracts';
+import {
+  widgets, hydration, sleep, score, profile, habits, quests,
+  events, diary, circle, items,
+} from '../contracts';
 
-// WidgetsScreen body is still placeholder — full playground rebuild
-// is the next session of work (see docs/Concerns.md). Manifest
-// declares the contract eagerly so the dev-infra agents know
-// the screen will own these reads/writes.
 export const manifest = defineScreen({
   id: 'widgets',
-  reads: [widgets.list],
+  // The playground previews each widget at small size, so it
+  // transitively reads everything the widget components read.
+  reads: [
+    widgets.list,
+    hydration.today, sleep.recent, score.get, profile.get,
+    habits.list, quests.list, events.list, diary.list,
+    circle.list, items.list,
+  ],
   writes: [widgets.install, widgets.move, widgets.resize, widgets.configure, widgets.remove, widgets.reset],
   commands: [],
-  permissions: ['widgets.read', 'widgets.write'],
+  permissions: [
+    'widgets.read', 'widgets.write',
+    'hydration.read', 'sleep.read', 'score.read', 'profile.read',
+    'habits.read', 'quests.read', 'events.read', 'diary.read',
+    'circle.read', 'items.read',
+  ],
   aiAffordances: [
     'Add a <kind> widget to my home',
     'Show my hydration on home',
     'Move the streak counter to the top',
+    'Resize the score gauge to 2x1',
     'Reset my home layout',
   ],
 });

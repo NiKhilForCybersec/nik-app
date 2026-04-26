@@ -7,6 +7,7 @@ import { getThemeVocab } from '../theme/themes';
 import { I } from '../components/icons';
 import { XPBar, Avatar, Chip, VoiceOrb, HUDCorner } from '../components/primitives';
 import { useOp, useOpMutation } from '../lib/useOp';
+import { useAuth } from '../lib/auth';
 import { profile as profileOps } from '../contracts/profile';
 import { habits as habitsOps } from '../contracts/habits';
 import { quests as questsOps } from '../contracts/quests';
@@ -859,16 +860,20 @@ export const LiveStat: React.FC<LiveStatProps> = ({ label, value, unit, target, 
 // in WidgetsScreen (Phase 2).
 
 const DynamicWidgetCanvas: React.FC<{ onNav: (s: ScreenId) => void }> = ({ onNav }) => {
-  const { data: widgets = [], isLoading } = useOp(widgetsOps.list, {});
+  const { userId } = useAuth();
+  const { data: widgets = [], isLoading, isFetched } = useOp(widgetsOps.list, {});
   const reset = useOpMutation(widgetsOps.reset);
   const [hasReset, setHasReset] = React.useState(false);
 
+  // Auto-seed defaults on first visit. Only after auth is ready AND
+  // the query has actually run (isFetched), otherwise we'd flip hasReset
+  // before userId arrives and never recover.
   React.useEffect(() => {
-    if (!isLoading && widgets.length === 0 && !hasReset) {
+    if (userId && isFetched && widgets.length === 0 && !hasReset) {
       setHasReset(true);
       void reset.mutateAsync({});
     }
-  }, [isLoading, widgets.length, hasReset, reset]);
+  }, [userId, isFetched, widgets.length, hasReset, reset]);
 
   if (isLoading || widgets.length === 0) return null;
 

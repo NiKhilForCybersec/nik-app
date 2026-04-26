@@ -246,8 +246,8 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/WardrobeScreen.manifest.ts](../web/src/screens/WardrobeScreen.manifest.ts) | `manifest` |
 | [web/src/screens/WardrobeScreen.tsx](../web/src/screens/WardrobeScreen.tsx) | `*default*`, `WardrobeScreen` |
 | [web/src/screens/WidgetsScreen.manifest.ts](../web/src/screens/WidgetsScreen.manifest.ts) | `manifest` |
-| _WidgetsScreen body is still placeholder — full playground rebuild_ | |
 | [web/src/screens/WidgetsScreen.tsx](../web/src/screens/WidgetsScreen.tsx) | `*default*`, `WidgetsScreen` |
+| _Mirror of the Home canvas, but in edit mode. Each widget renders_ | |
 | [web/src/screens/manifests.ts](../web/src/screens/manifests.ts) | `REACHABLE_COMMANDS`, `REACHABLE_OPS`, `SCREEN_MANIFESTS` |
 | _Aggregate screen manifests — auto-imports every <Name>Screen.manifest.ts_ | |
 
@@ -284,4 +284,4 @@ _Shared type-only modules._
 
 **Stats**: 163 files, 400 exports.
 
-**Last regenerated**: 2026-04-26T08:50:13.279Z.
+**Last regenerated**: 2026-04-26T09:50:32.871Z.
