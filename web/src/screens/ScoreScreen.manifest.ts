@@ -1,11 +1,17 @@
 import { defineScreen } from '../lib/screen-manifest';
+import { score } from '../contracts/score';
 
-// TODO: populate as the screen wires to the registry.
 export const manifest = defineScreen({
   id: 'score',
-  reads: [],
-  writes: [],
+  reads: [score.get, score.recent, score.backlog],
+  writes: [score.resolveBacklog],
   commands: [],
-  permissions: [],
-  aiAffordances: [],
+  permissions: ['score.read', 'score.write'],
+  aiAffordances: [
+    'How am I doing?',
+    'What\'s my Nik Score?',
+    'What dragged me down this week?',
+    'Show me my backlog',
+    'Help me clear a missed task',
+  ],
 });

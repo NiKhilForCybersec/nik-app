@@ -1,0 +1,88 @@
+# Nik patterns (in this repo)
+
+This file is dropped into the user's repo at the end of integration. It's the receipt of what was added + how to extend it. Customize per-user.
+
+## What was added
+
+| Path | Why |
+|---|---|
+| `src/lib/operations.ts` | `defineOp` helper — every backend op is defined once here |
+| `src/lib/commands.ts` | `defineCommand` — every UI mutation the AI can dispatch |
+| `src/lib/useOp.ts` | React hooks (`useOp`, `useOpMutation`) over the registry |
+| `src/lib/useCommand.tsx` | `CommandBusProvider` — wraps your app root; AI dispatches flow through here |
+| `src/contracts/<feature>.ts` | One file per domain. Add ops here. The registry index re-exports them |
+| `src/contracts/index.ts` | Central re-export. Imported by hooks + MCP server |
+| `src/<screens>/<Name>.manifest.ts` | Per-screen contract — what does this screen read/write |
+| `scripts/check-wiring.mjs` | CI verifier — drift between manifest and JSX = build fail |
+| `.github/workflows/ci.yml` | Adds `wiring-check` job alongside type-check + build |
+
+## How to add a feature (the 6-month-later test)
+
+1. Create `src/contracts/<feature>.ts` with `Zod` schemas + `defineOp({...})` entries.
+2. Re-export from `src/contracts/index.ts`.
+3. Use it in your component: `const { data } = useOp(myFeature.list, {})`.
+4. Create `<MyScreen>.manifest.ts` declaring `reads: [myFeature.list]`.
+5. CI passes. The MCP server picks up the new tool automatically.
+
+That's it. No fetch calls, no manual cache invalidation, no DTOs.
+
+## What prevents wiring breaks
+
+| Mechanism | Catches |
+|---|---|
+| TypeScript on the registry | Renamed/deleted ops → errors at every call site |
+| `dependency-cruiser` (optional) | Cross-feature imports → CI fail |
+| `check-wiring.mjs` | Manifest ↔ JSX drift → CI fail |
+| Per-screen manifest | New screen reaches outside its declared scope → CI fail |
+
+## How the AI mutates UI
+
+The user types "switch to dark mode" in the chat. Flow:
+1. `LLMRouter.complete()` returns `toolCalls: [{ name: 'ui.switchTheme', arguments: {...} }]`.
+2. ChatScreen iterates tool calls. For any starting with `ui.`, it calls `dispatch(name, arguments)`.
+3. `CommandBus` looks up the command by name, parses input via Zod, runs the handler.
+4. Handler calls `setState(...)`. React re-renders.
+
+Same flow whether the AI invoked it or a button on the UI did.
+
+## How to add an MCP tool
+
+It's already there. Every entry in `src/contracts/*.ts` is exposed automatically. To verify:
+
+```bash
+cd packages/mcp
+npm start
+# inspect tool list with the MCP inspector or your IDE's MCP client
+```
+
+To curate (don't expose all ops to AI), set `exposeToAI: false` on individual ops.
+
+## Migrating an existing endpoint
+
+Before (raw fetch):
+```ts
+const data = await fetch('/api/notes').then(r => r.json());
+```
+
+After (registry):
+```ts
+import { useOp } from '@/lib/useOp';
+import { notes } from '@/contracts/notes';
+
+const { data } = useOp(notes.list, {});
+```
+
+The CI wiring-check script forbids the raw `fetch` going forward, but it doesn't strip existing ones. Migrate incrementally — one screen per PR.
+
+## When to NOT use a registry op
+
+- Truly one-off (used in exactly one place, never reused) — fine to inline if you prefer
+- External API calls outside your own backend (Stripe, etc.) — wrap in a separate `external/` module, not a registry op
+
+## Where to read more
+
+Full Nik project (production reference): https://github.com/NiKhilForCybersec/nik-app
+
+Per-screen migration walkthroughs: [`docs/Backlog.md`](https://github.com/NiKhilForCybersec/nik-app/blob/main/docs/Backlog.md)
+
+Architectural pillars: [`docs/Architectural Pillars.md`](https://github.com/NiKhilForCybersec/nik-app/blob/main/docs/Architectural%20Pillars.md)

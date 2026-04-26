@@ -35,6 +35,7 @@ export function useAuth() {
           void seedSampleHabitsIfEmpty(id);
           void seedSampleEventsIfEmpty(id);
           void seedSampleDiaryIfEmpty(id);
+          void seedSampleScoreIfEmpty(id);
         }
         return;
       }
@@ -63,6 +64,7 @@ export function useAuth() {
           void seedSampleHabitsIfEmpty(id);
           void seedSampleEventsIfEmpty(id);
           void seedSampleDiaryIfEmpty(id);
+          void seedSampleScoreIfEmpty(id);
         } else {
           console.warn('[auth] dev sign-in/up failed', signed.error);
           setUserId(DEV_USER_ID);
@@ -218,4 +220,68 @@ async function seedSampleDiaryIfEmpty(userId: string) {
     seed.map((e) => ({ ...e, user_id: userId, photo_urls: [], tags: e.tags ?? [] })),
   );
   if (error) console.warn('[seed] diary insert failed', error);
+}
+
+async function seedSampleScoreIfEmpty(userId: string) {
+  // Each of (user_scores, score_events, score_backlog) is checked independently.
+  // user_scores has 0 or 1 row per user.
+  const { count: snapCount } = await supabase
+    .from('user_scores')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((snapCount ?? 0) === 0) await seedScoreSnapshot(userId);
+
+  const { count: evCount } = await supabase
+    .from('score_events')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((evCount ?? 0) === 0) await seedScoreEvents(userId);
+
+  const { count: bkCount } = await supabase
+    .from('score_backlog')
+    .select('*', { head: true, count: 'exact' })
+    .eq('user_id', userId);
+  if ((bkCount ?? 0) === 0) await seedScoreBacklog(userId);
+}
+
+async function seedScoreSnapshot(userId: string) {
+  const { error: snapErr } = await supabase.from('user_scores').insert({
+    user_id: userId,
+    total: 742,
+    delta_7d: 28,
+    rank: 'Operative II',
+    next_rank: 'Operative I',
+    next_rank_at: 800,
+    pillars: {
+      focus:  { value: 218, max: 300, weeklyGoal: 240, trend: [180, 195, 210, 220, 215, 218, 218] },
+      health: { value: 195, max: 250, weeklyGoal: 220, trend: [170, 185, 190, 195, 195, 195, 195] },
+      mind:   { value: 184, max: 250, weeklyGoal: 200, trend: [150, 160, 170, 175, 180, 184, 184] },
+      family: { value: 145, max: 200, weeklyGoal: 170, trend: [130, 135, 140, 142, 144, 145, 145] },
+    },
+    today_contribution: 18,
+  });
+  if (snapErr) console.warn('[seed] user_scores insert failed', snapErr);
+}
+
+async function seedScoreEvents(userId: string) {
+  const day = 86_400_000;
+  const now = Date.now();
+  const { error: evErr } = await supabase.from('score_events').insert([
+    { user_id: userId, occurred_at: new Date(now - 2*3_600_000).toISOString(), delta:  8, source: 'Focus 50min · spec writing', pillar: 'focus' },
+    { user_id: userId, occurred_at: new Date(now - 4*3_600_000).toISOString(), delta:  3, source: 'Vitamins logged', pillar: 'health' },
+    { user_id: userId, occurred_at: new Date(now - 6*3_600_000).toISOString(), delta:  5, source: 'Diary · morning entry', pillar: 'mind' },
+    { user_id: userId, occurred_at: new Date(now - 1*day).toISOString(),       delta: -3, source: 'Missed: family check-in', pillar: 'family' },
+    { user_id: userId, occurred_at: new Date(now - 1*day - 4*3_600_000).toISOString(), delta: 4, source: 'Workout · arms day', pillar: 'health' },
+  ]);
+  if (evErr) console.warn('[seed] score_events insert failed', evErr);
+}
+
+async function seedScoreBacklog(userId: string) {
+  const { error: bkErr } = await supabase.from('score_backlog').insert([
+    { user_id: userId, title: 'Call mom',          missed_label: 'Yesterday',  cost: -3, makeup: 'Call mom today (+5)',      pillar: 'family', dismissable: true, gentle: false },
+    { user_id: userId, title: 'Dentist (rebook)',  missed_label: '2 days ago', cost: -2, makeup: 'Book within 48h (+3)',     pillar: 'family', dismissable: true, gentle: false },
+    { user_id: userId, title: 'Iron tablet (Sun)', missed_label: 'Sunday',     cost: -1, makeup: 'Take tonight (+2)',        pillar: 'health', dismissable: true, gentle: false },
+    { user_id: userId, title: 'Reading 30min',     missed_label: 'Today',      cost:  0, makeup: 'Catch up before bed (+4)', pillar: 'mind',   dismissable: true, gentle: true  },
+  ]);
+  if (bkErr) console.warn('[seed] score_backlog insert failed', bkErr);
 }

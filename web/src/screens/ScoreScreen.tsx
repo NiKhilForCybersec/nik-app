@@ -8,9 +8,33 @@ import type { ScreenProps } from '../App';
 import { getTheme } from '../theme/themes';
 import { I } from '../components/icons';
 import { SCORE_PILLARS, MOCK_SCORE } from '../theme/score';
+import { useOp } from '../lib/useOp';
+import { score as scoreOps } from '../contracts/score';
 
 export default function ScoreScreen({ themeId }: ScreenProps) {
-  const s: any = MOCK_SCORE;
+  const snapshotQ = useOp(scoreOps.get, {});
+  const recentQ   = useOp(scoreOps.recent, { limit: 20 });
+  const backlogQ  = useOp(scoreOps.backlog, {});
+
+  // Compose snapshot + ledger + backlog into the shape the existing UI expects.
+  // Falls back to MOCK_SCORE only while the snapshot is loading the first time.
+  const snap = snapshotQ.data;
+  const s: any = snap ? {
+    total: snap.total,
+    delta7d: snap.delta_7d,
+    rank: snap.rank,
+    nextRank: snap.next_rank ? { name: snap.next_rank, at: snap.next_rank_at } : null,
+    pillars: snap.pillars,
+    todayContribution: snap.today_contribution,
+    backlog: (backlogQ.data ?? []).map((b) => ({
+      id: b.id, title: b.title, missed: b.missed_label, cost: b.cost,
+      makeup: b.makeup, pillar: b.pillar, dismissable: b.dismissable, gentle: b.gentle,
+    })),
+    recent: (recentQ.data ?? []).map((e) => ({
+      ts: new Date(e.occurred_at).toLocaleString([], { weekday: 'short', hour: 'numeric', minute: '2-digit' }),
+      delta: e.delta, source: e.source, pillar: e.pillar,
+    })),
+  } : MOCK_SCORE;
   const [activePillar, setActivePillar] = React.useState<string | null>(null);
   const t = themeId ? getTheme(themeId) : null;
   const rankPrefix = (t as any)?.vocab?.rankPrefix || 'OPERATIVE';
