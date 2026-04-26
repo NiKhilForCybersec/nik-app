@@ -74,6 +74,8 @@ _Primitives, shell, sheets, icons._
 
 | File | Exports |
 |---|---|
+| [web/src/components/ItemsListScreen.tsx](../web/src/components/ItemsListScreen.tsx) | `*default*`, `ItemsListScreen`, `ItemsListScreenProps` |
+| _Renders a typed `kind` of item from the items contract: list, add,_ | |
 | [web/src/components/icons.tsx](../web/src/components/icons.tsx) | `I`, `Icon`, `IconProps` |
 | [web/src/components/primitives.tsx](../web/src/components/primitives.tsx) | `AndroidDevice`, `AndroidDeviceProps`, `Avatar`, `AvatarProps`, `Chip`, `ChipProps`, `GradientDefs`, `HUDCorner`, `HUDCornerProps`, `IOSDevice`, `IOSDeviceProps`, `Placeholder`, `PlaceholderProps`, `Ring`, `RingProps`, `Toast`, `ToastNotif`, `ToastProps`, `VoiceOrb`, `VoiceOrbProps`, `Waveform`, `WaveformProps`, `XPBar`, `XPBarProps` |
 | [web/src/components/sheets/CircleSheets.tsx](../web/src/components/sheets/CircleSheets.tsx) | `CircleSheet`, `MemberDetailSheet`, `PrivacySheet`, `ViewLogSheet` |
@@ -93,6 +95,8 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/AuthScreen.manifest.ts](../web/src/screens/AuthScreen.manifest.ts) | `manifest` |
 | [web/src/screens/AuthScreen.tsx](../web/src/screens/AuthScreen.tsx) | `*default*`, `AuthScreen` |
 | _Email + password for now (test/test enough in dev). OAuth buttons_ | |
+| [web/src/screens/BirthdaysScreen.manifest.ts](../web/src/screens/BirthdaysScreen.manifest.ts) | `manifest` |
+| [web/src/screens/BirthdaysScreen.tsx](../web/src/screens/BirthdaysScreen.tsx) | `*default*`, `BirthdaysScreen` |
 | [web/src/screens/BriefScreen.manifest.ts](../web/src/screens/BriefScreen.manifest.ts) | `manifest` |
 | [web/src/screens/BriefScreen.tsx](../web/src/screens/BriefScreen.tsx) | `*default*`, `BriefScreen` |
 | _Reads ingested events from `events` table (movie tickets, calendar_ | |
@@ -154,12 +158,16 @@ _Top-level routes. Each pair: <Name>Screen.tsx + <Name>Screen.manifest.ts._
 | [web/src/screens/QuestsScreen.manifest.ts](../web/src/screens/QuestsScreen.manifest.ts) | `manifest` |
 | [web/src/screens/QuestsScreen.tsx](../web/src/screens/QuestsScreen.tsx) | `*default*`, `QuestsScreen` |
 | _Featured emergent quest (GPS) — purely a placeholder until the_ | |
+| [web/src/screens/ReadingScreen.manifest.ts](../web/src/screens/ReadingScreen.manifest.ts) | `manifest` |
+| [web/src/screens/ReadingScreen.tsx](../web/src/screens/ReadingScreen.tsx) | `*default*`, `ReadingScreen` |
 | [web/src/screens/ScoreScreen.manifest.ts](../web/src/screens/ScoreScreen.manifest.ts) | `manifest` |
 | [web/src/screens/ScoreScreen.tsx](../web/src/screens/ScoreScreen.tsx) | `*default*`, `ScoreScreen` |
 | _Full breakdown of the 0-1000 Nik score: pillars, recent events,_ | |
 | [web/src/screens/SettingsScreen.manifest.ts](../web/src/screens/SettingsScreen.manifest.ts) | `manifest` |
 | _TODO: populate as the screen wires to the registry._ | |
 | [web/src/screens/SettingsScreen.tsx](../web/src/screens/SettingsScreen.tsx) | `*default*`, `SettingsScreen` |
+| [web/src/screens/ShoppingScreen.manifest.ts](../web/src/screens/ShoppingScreen.manifest.ts) | `manifest` |
+| [web/src/screens/ShoppingScreen.tsx](../web/src/screens/ShoppingScreen.tsx) | `*default*`, `ShoppingScreen` |
 | [web/src/screens/SleepScreen.manifest.ts](../web/src/screens/SleepScreen.manifest.ts) | `manifest` |
 | [web/src/screens/SleepScreen.tsx](../web/src/screens/SleepScreen.tsx) | `*default*`, `SleepScreen` |
 | [web/src/screens/StatsScreen.manifest.ts](../web/src/screens/StatsScreen.manifest.ts) | `manifest` |
@@ -205,6 +213,6 @@ _Shared type-only modules._
 
 ---
 
-**Stats**: 93 files, 282 exports.
+**Stats**: 100 files, 294 exports.
 
-**Last regenerated**: 2026-04-26T05:05:45.836Z.
+**Last regenerated**: 2026-04-26T05:23:14.572Z.

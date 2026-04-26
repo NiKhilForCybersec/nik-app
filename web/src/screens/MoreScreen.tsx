@@ -60,7 +60,7 @@ const CATEGORIES: Category[] = [
     title: 'Mind',
     subtitle: 'Reflection, growth, focus',
     items: [
-      { id: 'reading',      icon: 'book',      label: 'Reading',        sub: 'Books · highlights · queue',  hue: 280, tag: 'SOON' },
+      { id: 'reading',      icon: 'book',      label: 'Reading',        sub: 'Books · highlights · queue',  hue: 280, tag: 'NEW' },
       { id: 'learning',     icon: 'brain',     label: 'Learning',       sub: 'Courses · streaks · goals',   hue: 220, tag: 'SOON' },
       { id: 'gratitude',    icon: 'heart',     label: 'Gratitude',      sub: 'Daily · 3 things',            hue: 320, tag: 'SOON' },
       { id: 'goals',        icon: 'target',    label: 'Goals',          sub: 'Year · quarter · this week',  hue: 150, tag: 'SOON' },
@@ -80,7 +80,7 @@ const CATEGORIES: Category[] = [
       { id: 'friends',      icon: 'users',     label: 'Friends',        sub: 'Touch · plans · birthdays',   hue: 280, tag: 'SOON' },
       { id: 'network',      icon: 'briefcase', label: 'Network',        sub: 'Reach-outs · intros',         hue: 220, tag: 'SOON' },
       { id: 'pets',         icon: 'heart',     label: 'Pets',           sub: 'Vet · meds · feeding',        hue: 60,  tag: 'SOON' },
-      { id: 'birthdays',    icon: 'calendar',  label: 'Birthdays',      sub: 'Upcoming · gifts · cards',    hue: 320, tag: 'SOON' },
+      { id: 'birthdays',    icon: 'calendar',  label: 'Birthdays',      sub: 'Upcoming · gifts · cards',    hue: 320, tag: 'NEW' },
     ],
   },
   {
@@ -101,7 +101,7 @@ const CATEGORIES: Category[] = [
     subtitle: 'Day-to-day operations',
     items: [
       { id: 'errands',      icon: 'shopping',  label: 'Errands',        sub: 'Routes · GPS · shared',       hue: 200 },
-      { id: 'shopping',     icon: 'shopping',  label: 'Shopping',       sub: 'Lists · stores · history',    hue: 280, tag: 'SOON' },
+      { id: 'shopping',     icon: 'shopping',  label: 'Shopping',       sub: 'Lists · stores · history',    hue: 280, tag: 'NEW' },
       { id: 'recipes',      icon: 'utensils',  label: 'Recipes',        sub: 'Save · cook · plan week',     hue: 30,  tag: 'SOON' },
       { id: 'maintenance',  icon: 'settings',  label: 'Home',           sub: 'Filters · service · warranty',hue: 220, tag: 'SOON' },
       { id: 'plants',       icon: 'flame',     label: 'Plants',         sub: 'Water · sun · health',        hue: 150, tag: 'SOON' },
@@ -154,7 +154,8 @@ const ALL_ITEMS = CATEGORIES.flatMap(c => c.items.map(it => ({ ...it, category: 
 const isImplemented = (id: string) =>
   ['home','chat','habits','fitness','profile','familyops','circle','family','meds','diary',
    'focus','score','sleep','money','brief','vault','errands','couple','kids','onboard',
-   'settings','quests','widgets','stats','more'].includes(id);
+   'settings','quests','widgets','stats','more',
+   'reading','shopping','birthdays'].includes(id);
 
 export default function MoreScreen({ onNav, setState }: ScreenProps) {
   const [search, setSearch] = useState('');
