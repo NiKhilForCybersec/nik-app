@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Wardrobe list',
-    "What is on my Wardrobe list?",
+    'Add an item to my wardrobe list',
+    'What is on my wardrobe list?',
   ],
 });

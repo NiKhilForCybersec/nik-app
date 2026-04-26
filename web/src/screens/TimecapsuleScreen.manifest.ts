@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Time Capsule list',
-    "What is on my Time Capsule list?",
+    'Add an item to my timecapsule list',
+    'What is on my timecapsule list?',
   ],
 });

@@ -61,10 +61,27 @@ for (const screen of screens) {
     commands: extractFromManifest(manifestSrc, 'commands'),
   };
 
+  // Walk relative imports one hop deep so a screen that delegates
+  // to a helper component (ItemsListScreen, sheets, etc.) "uses" any
+  // ops that helper uses. Without this, every wrapper screen falsely
+  // looks like it doesn't use the items.* ops it routes through.
+  const importRe = /from\s+['"](\.\.?\/[^'"]+)['"]/g;
+  let combinedSrc = screenSrc;
+  for (const m of screenSrc.matchAll(importRe)) {
+    const rel = m[1];
+    for (const ext of ['.tsx', '.ts', '/index.tsx', '/index.ts']) {
+      const full = join(dirname(screenPath), rel + ext);
+      if (existsSync(full)) {
+        try { combinedSrc += '\n' + readFileSync(full, 'utf8'); } catch { /* ignore */ }
+        break;
+      }
+    }
+  }
+
   const used = {
-    reads:    [...screenSrc.matchAll(RE.useOp)].map((m) => m[1]),
-    writes:   [...screenSrc.matchAll(RE.useMutation)].map((m) => m[1]),
-    commands: [...screenSrc.matchAll(RE.useDispatch)].map((m) => m[1]),
+    reads:    [...combinedSrc.matchAll(RE.useOp)].map((m) => m[1]),
+    writes:   [...combinedSrc.matchAll(RE.useMutation)].map((m) => m[1]),
+    commands: [...combinedSrc.matchAll(RE.useDispatch)].map((m) => m[1]),
   };
 
   for (const kind of /** @type {const} */ (['reads', 'writes', 'commands'])) {

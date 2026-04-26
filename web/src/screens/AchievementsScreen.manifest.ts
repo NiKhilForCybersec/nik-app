@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Achievements list',
-    "What is on my Achievements list?",
+    'Add an item to my achievements list',
+    'What is on my achievements list?',
   ],
 });

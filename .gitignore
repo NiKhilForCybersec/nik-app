@@ -2,6 +2,10 @@
 .claude/
 **/.claude/
 
+# ── Dev watcher transient findings ──
+docs/dev-findings.json
+web/public/dev-findings.json
+
 # ── Dependencies ──
 node_modules/
 .pnpm-store/

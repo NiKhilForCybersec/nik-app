@@ -24,9 +24,10 @@ import { useCommand } from '../lib/useCommand';
 import { useAuth } from '../lib/auth';
 import { zodToJsonSchema } from '../lib/llm/zodToJsonSchema';
 
-type PanelId = 'registry' | 'db' | 'drift' | 'health' | 'llm' | 'feed' | 'nav' | 'hard' | 'graph';
+type PanelId = 'registry' | 'db' | 'drift' | 'health' | 'llm' | 'feed' | 'nav' | 'hard' | 'watch' | 'graph';
 
 const PANELS: { id: PanelId; label: string; icon: keyof typeof I }[] = [
+  { id: 'watch',    label: 'Watcher',    icon: 'sparkle' },
   { id: 'registry', label: 'Registry',   icon: 'sparkle' },
   { id: 'db',       label: 'Database',   icon: 'grid'   },
   { id: 'drift',    label: 'Drift',      icon: 'check'  },
@@ -39,7 +40,7 @@ const PANELS: { id: PanelId; label: string; icon: keyof typeof I }[] = [
 ];
 
 export default function DevScreen(_p: ScreenProps) {
-  const [tab, setTab] = React.useState<PanelId>('registry');
+  const [tab, setTab] = React.useState<PanelId>('watch');
 
   return (
     <div style={{ padding: '8px 16px 100px', color: 'var(--fg)' }}>
@@ -100,6 +101,7 @@ export default function DevScreen(_p: ScreenProps) {
       {tab === 'feed'     && <FeedPanel />}
       {tab === 'nav'      && <NavigationPanel />}
       {tab === 'hard'     && <HardcodedPanel />}
+      {tab === 'watch'    && <WatcherPanel />}
       {tab === 'graph'    && <GraphPanel />}
     </div>
   );
@@ -791,6 +793,131 @@ function HardcodedPanel() {
               {items.length > 30 && <div style={{ fontSize: 9, color: 'var(--fg-3)' }}>+{items.length - 30} more</div>}
             </div>
           </details>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Watcher panel ─────────────────────────────────────────
+//
+// Reads docs/dev-findings.json (refreshed by `npm run watch:dev` in
+// a parallel terminal). Each "agent" reports its slot. Polls every
+// 2s so as you edit code in another tab, this view tracks live.
+// Vite serves the JSON from /docs because of the workspace layout —
+// fetch path is relative.
+
+type Findings = {
+  ranAt: string;
+  durationMs: number;
+  agents: {
+    wiring?: { errors: string[]; warnings: string[] };
+    registry?: { opCount: number; cmdCount: number; total: number; duplicates: string[] };
+    navigation?: { broken: { source: string; dest: string }[]; knownCount: number };
+    hardcoded?: { findings: { file: string; line: number; kind: string; text: string }[]; total: number };
+  };
+};
+
+function WatcherPanel() {
+  const [findings, setFindings] = React.useState<Findings | null>(null);
+  const [err, setErr] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const fetchFindings = async () => {
+      try {
+        // Try /docs first (Vite serves from web root by default in dev,
+        // but our docs dir is at the repo root). The watcher emits an
+        // absolute path so we surface a hint when not served.
+        const r = await fetch('/dev-findings.json?t=' + Date.now());
+        if (r.ok) {
+          if (!cancelled) { setFindings(await r.json()); setErr(null); }
+        } else {
+          if (!cancelled) setErr(`Watcher findings not served (${r.status}). Run: cd web && npm run watch:dev`);
+        }
+      } catch (e) {
+        if (!cancelled) setErr((e as Error).message);
+      }
+    };
+    void fetchFindings();
+    const t = setInterval(fetchFindings, 2000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, []);
+
+  if (err && !findings) {
+    return (
+      <div className="glass" style={{ padding: 16 }}>
+        <div style={{ fontSize: 11, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>WATCHER OFFLINE</div>
+        <div style={{ fontSize: 13, color: 'var(--fg-2)', lineHeight: 1.6 }}>
+          To see live agent findings, run in a separate terminal:
+        </div>
+        <pre style={{ marginTop: 10, padding: 10, borderRadius: 8, background: 'oklch(1 0 0 / 0.04)', fontSize: 11, color: 'var(--fg)' }}>
+          cd web && npm run watch:dev
+        </pre>
+        <div style={{ fontSize: 11, color: 'var(--fg-3)', marginTop: 10, fontFamily: 'var(--font-mono)' }}>{err}</div>
+      </div>
+    );
+  }
+  if (!findings) {
+    return <div style={{ padding: 16, color: 'var(--fg-3)', fontFamily: 'var(--font-mono)' }}>loading…</div>;
+  }
+
+  const w = findings.agents.wiring;
+  const reg = findings.agents.registry;
+  const nav = findings.agents.navigation;
+  const hard = findings.agents.hardcoded;
+
+  return (
+    <div>
+      <div className="glass" style={{ padding: 10, marginBottom: 12, borderRadius: 8, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--fg-3)', display: 'flex', justifyContent: 'space-between' }}>
+        <span>LAST RUN · {new Date(findings.ranAt).toLocaleTimeString()} · {findings.durationMs}ms</span>
+        <span style={{ color: 'oklch(0.78 0.15 150)' }}>● polling 2s</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+        <Stat label="WIRING ERR" value={String(w?.errors.length ?? 0)} bad={(w?.errors.length ?? 0) > 0} />
+        <Stat label="WIRING WARN" value={String(w?.warnings.length ?? 0)} />
+        <Stat label="NAV BROKEN" value={String(nav?.broken.length ?? 0)} bad={(nav?.broken.length ?? 0) > 0} />
+        <Stat label="HARDCODED" value={String(hard?.total ?? 0)} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8, marginBottom: 16 }}>
+        <Stat label="OPS" value={String(reg?.opCount ?? 0)} />
+        <Stat label="COMMANDS" value={String(reg?.cmdCount ?? 0)} />
+      </div>
+
+      {w && w.errors.length > 0 && (
+        <Section title="WIRING ERRORS" tone="err" items={w.errors} />
+      )}
+      {w && w.warnings.length > 0 && (
+        <Section title="WIRING WARNINGS" tone="warn" items={w.warnings} />
+      )}
+      {nav && nav.broken.length > 0 && (
+        <Section title="BROKEN NAVIGATION" tone="err" items={nav.broken.map((b) => `${b.source} → '${b.dest}'`)} />
+      )}
+      {reg && reg.duplicates.length > 0 && (
+        <Section title="DUPLICATE OP NAMES" tone="err" items={reg.duplicates} />
+      )}
+      {hard && hard.findings.length > 0 && (
+        <Section title="SUSPICIOUS LITERALS"
+          tone="warn"
+          items={hard.findings.slice(0, 30).map((f) => `${f.file}:${f.line} · [${f.kind}] "${f.text.slice(0, 80)}"`)} />
+      )}
+    </div>
+  );
+}
+
+function Section({ title, tone, items }: { title: string; tone: 'err' | 'warn'; items: string[] }) {
+  const color = tone === 'err' ? 'oklch(0.85 0.18 25)' : 'oklch(0.85 0.16 60)';
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{ fontSize: 10, color, fontFamily: 'var(--font-mono)', letterSpacing: 1.5, marginBottom: 6 }}>
+        {title} · {items.length}
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {items.map((line, i) => (
+          <div key={i} className="glass" style={{ padding: 6, borderRadius: 6, fontSize: 10, color: 'var(--fg-2)', fontFamily: 'var(--font-mono)' }}>
+            {line}
+          </div>
         ))}
       </div>
     </div>

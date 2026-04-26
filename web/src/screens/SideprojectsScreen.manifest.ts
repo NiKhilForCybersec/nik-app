@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Side Projects list',
-    "What is on my Side Projects list?",
+    'Add an item to my sideprojects list',
+    'What is on my sideprojects list?',
   ],
 });

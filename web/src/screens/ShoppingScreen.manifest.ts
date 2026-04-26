@@ -1,6 +1,5 @@
 import { defineScreen } from '../lib/screen-manifest';
 import { items } from '../contracts';
-
 export const manifest = defineScreen({
   id: 'shopping',
   reads: [items.list],
@@ -8,8 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add <item> to my shopping list',
-    "What's on my shopping list?",
-    'Mark <item> as bought',
+    'Add an item to my shopping list',
+    'What is on my shopping list?',
   ],
 });

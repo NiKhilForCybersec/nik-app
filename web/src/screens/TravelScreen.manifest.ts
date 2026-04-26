@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Travel list',
-    "What is on my Travel list?",
+    'Add an item to my travel list',
+    'What is on my travel list?',
   ],
 });

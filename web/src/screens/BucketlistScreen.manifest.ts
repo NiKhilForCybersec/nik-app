@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Bucket List list',
-    "What is on my Bucket List list?",
+    'Add an item to my bucketlist list',
+    'What is on my bucketlist list?',
   ],
 });

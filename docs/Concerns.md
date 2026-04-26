@@ -16,6 +16,21 @@ This file is auto-loaded into context at session start via the wiki + linked fro
 
 ## Open
 
+### 2026-04-26 · Source-of-truth mismatch: Home Hydrate (8/8) ≠ Hydration screen (4/8)
+Home shows habit.done=8 (capped after auto-bumps), Hydration screen shows 4/8 (count of actual hydration_intakes rows today). Two screens, different denominators, both claiming to be the same metric. **Fix:** make the Hydrate widget on Home derive from hydration.today (single source of truth) so the ring drains correctly when intakes are removed/added.
+
+### 2026-04-26 · Drift panel shows 134 issues (not 13 as I claimed)
+My Drift panel browser-side regex must be over-flagging. Reconcile with `node scripts/check-wiring.mjs` which CI uses. **Fix:** align the in-browser drift logic with the CI script exactly.
+
+### 2026-04-26 · Hundreds of hardcoded literals across screens
+Hardcoded panel showed 21 last time, user reports hundreds. Likely my heuristic missed a class. Re-tune with stricter "value vs UI text" detection.
+
+### 2026-04-26 · Graph appears hardcoded — not actually live
+User suspects the graph is showing static data. **Verify:** the graph should re-render when ops are called (it does via onOpCalls listener) but doesn't show file-change updates. Add HMR-driven re-render. Display last-update timestamp visibly.
+
+### 2026-04-26 · NEED: parallel review agents for each dev skill
+"There should be auto agents which trigger along with you writing the code — one for registry, one for database, one for drift — running parallel checks of the code base changes and what's happening." Build a watcher process (Vite plugin or standalone) that runs registry-check + db-schema-check + drift-check + hardcoded-scan + manifest-validation continuously, emits findings to a Watcher panel in dev console. **Why:** static analysis at commit-time is too late; real-time agents catch it as code lands.
+
 ### 2026-04-26 · Graph nodes confusingly named — APP vs NIK vs AI · CHAT
 "NIK" reads as the AI assistant (which it is in-product) but in the graph it's the master app node. "AI · CHAT" is the actual AI surface. Rename: app master → "APP", AI super-node → "NIK" (the character). **Why:** the user's mental model puts Nik=AI, not Nik=app shell.
 

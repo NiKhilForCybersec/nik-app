@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "watch:dev": "node ../scripts/watch-dev.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

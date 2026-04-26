@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Languages list',
-    "What is on my Languages list?",
+    'Add an item to my languages list',
+    'What is on my languages list?',
   ],
 });

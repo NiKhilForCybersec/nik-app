@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Friends list',
-    "What is on my Friends list?",
+    'Add an item to my friends list',
+    'What is on my friends list?',
   ],
 });

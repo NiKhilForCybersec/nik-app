@@ -114,18 +114,28 @@ export const hydration = {
         .single();
       if (error) throw error;
 
-      // Best-effort habit sync — find the user's hydrate habit and bump
-      // it by 1 (one glass-equivalent). Failures are non-fatal.
+      // Sync the matching Hydrate habit's done count to today's actual
+      // intake count (in glasses, ~250ml each). Recompute every time so
+      // the two displays can never drift — habit.done is now a DERIVED
+      // mirror of hydration_intakes, not an independent counter.
       if (input.bumpHabit) {
         const { data: habit } = await sb
           .from('habits')
-          .select('id')
+          .select('id, target')
           .eq('user_id', userId)
           .ilike('name', '%hydrat%')
           .limit(1)
           .maybeSingle();
         if (habit?.id) {
-          await sb.rpc('habit_bump', { habit_id: habit.id, amount: 1 });
+          const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+          const { data: todayIntakes } = await sb
+            .from('hydration_intakes')
+            .select('ml')
+            .eq('user_id', userId)
+            .gte('occurred_at', startOfDay.toISOString());
+          const totalMl = (todayIntakes ?? []).reduce((s, i) => s + (i.ml as number), 0);
+          const glasses = Math.min(habit.target, Math.round(totalMl / 250));
+          await sb.from('habits').update({ done: glasses, last_done_at: new Date().toISOString() }).eq('id', habit.id);
         }
       }
 
@@ -135,15 +145,30 @@ export const hydration = {
 
   remove: defineOp({
     name: 'hydration.remove',
-    description: 'Delete an intake event (mistake / wrong amount). Does not adjust the linked habit — the user can manually undo with the Habits screen.',
+    description: 'Delete an intake event (mistake / wrong amount). Re-derives the Hydrate habit\'s done count from the remaining intakes so Home stays in sync.',
     kind: 'mutation',
     permissions: ['hydration.write'],
     tags: ['hydration'],
     input: z.object({ id: z.string().uuid() }).strict(),
     output: z.object({ removed: z.boolean() }),
-    handler: async ({ sb }, { id }) => {
+    handler: async ({ sb, userId }, { id }) => {
       const { error } = await sb.from('hydration_intakes').delete().eq('id', id);
       if (error) throw error;
+      // Re-derive the Hydrate habit's done count after removal.
+      if (userId) {
+        const { data: habit } = await sb
+          .from('habits').select('id, target')
+          .eq('user_id', userId).ilike('name', '%hydrat%').limit(1).maybeSingle();
+        if (habit?.id) {
+          const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+          const { data: todayIntakes } = await sb
+            .from('hydration_intakes').select('ml')
+            .eq('user_id', userId).gte('occurred_at', startOfDay.toISOString());
+          const totalMl = (todayIntakes ?? []).reduce((s, i) => s + (i.ml as number), 0);
+          const glasses = Math.min(habit.target, Math.round(totalMl / 250));
+          await sb.from('habits').update({ done: glasses }).eq('id', habit.id);
+        }
+      }
       return { removed: true };
     },
   }),

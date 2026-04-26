@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Network list',
-    "What is on my Network list?",
+    'Add an item to my network list',
+    'What is on my network list?',
   ],
 });

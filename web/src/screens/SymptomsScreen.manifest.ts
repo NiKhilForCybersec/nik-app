@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Symptoms list',
-    "What is on my Symptoms list?",
+    'Add an item to my symptoms list',
+    'What is on my symptoms list?',
   ],
 });

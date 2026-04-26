@@ -7,7 +7,7 @@ export const manifest = defineScreen({
   commands: [],
   permissions: ['items.read', 'items.write'],
   aiAffordances: [
-    'Add an item to my Subscriptions list',
-    "What is on my Subscriptions list?",
+    'Add an item to my subscriptions list',
+    'What is on my subscriptions list?',
   ],
 });
